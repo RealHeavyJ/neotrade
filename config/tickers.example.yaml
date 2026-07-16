@@ -1,0 +1,6 @@
+# Configurable list of ~20 stocks
+tickers:
+  - NVDA
+  - AMD
+  - INTC
+  # ... add the rest or make fully dynamic later
