@@ -1,0 +1,118 @@
+# Universe: growth/tech/AI/power (~68%) + defensive diversifiers (~32%).
+
+universe:
+  name: neotrade-core-22
+  currency: USD
+  exchange_bias: NYSE_NASDAQ
+
+tickers:
+  # Growth / Tech / AI / Datacenter / Energy-Power (15)
+  - symbol: NVDA
+    name: NVIDIA
+    sector: Technology
+    sleeve: growth
+  - symbol: AMD
+    name: Advanced Micro Devices
+    sector: Technology
+    sleeve: growth
+  - symbol: AVGO
+    name: Broadcom
+    sector: Technology
+    sleeve: growth
+  - symbol: TSM
+    name: Taiwan Semiconductor
+    sector: Technology
+    sleeve: growth
+  - symbol: MU
+    name: Micron Technology
+    sector: Technology
+    sleeve: growth
+  - symbol: MRVL
+    name: Marvell Technology
+    sector: Technology
+    sleeve: growth
+  - symbol: ARM
+    name: Arm Holdings
+    sector: Technology
+    sleeve: growth
+  - symbol: PLTR
+    name: Palantir
+    sector: Technology
+    sleeve: growth
+  - symbol: CRWD
+    name: CrowdStrike
+    sector: Technology
+    sleeve: growth
+  - symbol: NOW
+    name: ServiceNow
+    sector: Technology
+    sleeve: growth
+  - symbol: VST
+    name: Vistra
+    sector: Utilities
+    sleeve: growth
+  - symbol: CEG
+    name: Constellation Energy
+    sector: Utilities
+    sleeve: growth
+  - symbol: GEV
+    name: GE Vernova
+    sector: Industrials
+    sleeve: growth
+  - symbol: ETN
+    name: Eaton
+    sector: Industrials
+    sleeve: growth
+  - symbol: CAT
+    name: Caterpillar
+    sector: Industrials
+    sleeve: growth
+
+  # Diversification / Safety / Dividends / Balance (7)
+  - symbol: JNJ
+    name: Johnson & Johnson
+    sector: Healthcare
+    sleeve: defensive
+  - symbol: PG
+    name: Procter & Gamble
+    sector: Consumer Defensive
+    sleeve: defensive
+  - symbol: KO
+    name: Coca-Cola
+    sector: Consumer Defensive
+    sleeve: defensive
+  - symbol: PEP
+    name: PepsiCo
+    sector: Consumer Defensive
+    sleeve: defensive
+  - symbol: JPM
+    name: JPMorgan Chase
+    sector: Financial Services
+    sleeve: defensive
+  - symbol: NEE
+    name: NextEra Energy
+    sector: Utilities
+    sleeve: defensive
+  - symbol: DUK
+    name: Duke Energy
+    sector: Utilities
+    sleeve: defensive
+
+data:
+  cache_dir: data/cache
+  # auto = Alpaca market data first, yfinance fallback
+  provider: auto
+  default_period: 1y
+  default_interval: 1d
+  max_age_hours: 24
+
+risk:
+  max_position_pct: 0.08
+  growth_target_pct: 0.68
+  defensive_target_pct: 0.32
+  max_new_positions: 8
+  min_notional: 25.0
+  min_cash_pct: 0.02
+  buy_threshold: 0.55
+  sell_threshold: 0.45
+  paper_only: true

@@ -1,34 +1,63 @@
 # Context - neotrade
 
-## What This Project Is
-Local-first paper-trading decision-support system for the Apple MacBook Neo, using LightGBM signals, multi-agent collaboration (Ollama + LangGraph), and a Streamlit dashboard.
+## What
+Local-first paper-trading decision support on MacBook Neo: LightGBM + Alpaca paper/MD + Ollama/LangGraph + Streamlit. **No cloud LLM at runtime.**
 
-## Hardware Target
-- Apple MacBook Neo (A18 Pro, 8GB unified memory)
-- Local inference via Ollama / MLX and small models
+## Hardware
+Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 
-## Key Decisions
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Project name | **neotrade** | Locked; no trailing "r" |
-| Repo | `~/dev/neotrade` + `github.com/RealHeavyJ/neotrade` | Isolated project root |
-| Runtime locality | Fully local for trading system | Privacy + Neo demo |
-| Primary agents framework | LangGraph (preferred) over CrewAI | Controllable multi-agent graphs |
-| Signal model | LightGBM | Lightweight, fits 8GB unified memory |
-| UI | Streamlit | Fast interactive dashboard + chat |
-| Dev agent | Grok Build CLI | Primary coding/planning agent |
-| Memory | Markdown files | Goals, tasks, progress, testing, context, tokens |
+## Locked decisions
+| Item | Choice |
+|------|--------|
+| Name / repo | neotrade · `~/dev/neotrade` |
+| Signals | LightGBM → `models/signal.txt` |
+| Agents | LangGraph · Ollama `llama3.2:3b` |
+| UI | Streamlit `neotrade dashboard` |
+| Broker | Alpaca **paper** only |
+| Data | Alpaca MD REST (`iex`) + yfinance fallback |
+| Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
+| Risk | 8% max name · 68/32 sleeves · execute needs `--confirm` |
 
-## Open Questions
-- Paper broker: Alpaca paper vs local simulator?
-- Exact small models for Ollama on Neo?
-- Final list of ~20 tickers and config format?
+## Layout (current)
+```
+src/neotrade/
+  config/ data/ signals/ broker/ agents/
+  dashboard/ perf/ learning/ main.py
+config/tickers.yaml
+DAILY_TODO.md PROGRESS.md TASKS.md CONTEXT.md
+```
 
-## Related Files
-- `PROJECT_GOALS.md` — vision and success criteria
-- `TASKS.md` — backlog and session priority
-- `PROGRESS.md` — session log and milestones
-- `TESTING.md` — test approach and status
-- `TOKEN_MANAGEMENT.md` — context/token budget notes
+## Env (`.env` gitignored)
+- Trading: `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, `ALPACA_PAPER=true`, `ALPACA_BASE_URL=https://paper-api.alpaca.markets`
+- Data: `ALPACA_DATA_URL=https://data.alpaca.markets`, `ALPACA_DATA_FEED=iex`
+- LLM: `OLLAMA_HOST`, `NEOTRADE_OLLAMA_MODEL=llama3.2:3b`
 
-Last updated: 2026-07-15
+## Advise vs train
+- **Advise** = human narrative (optional log). Does not tune LightGBM.  
+- **Train** = only path that updates the signal model (from OHLCV labels).
+
+## Gotchas
+- `source .venv/bin/activate`  
+- libomp already installed (reinstall only if LightGBM import breaks)  
+- Open/unfilled orders ≠ positions (agents prompted accordingly)
+
+## Open product questions
+- Rebalance cadence  
+- Default advise-only vs more automation  
+- How aggressively to use learning logs (policy TBD)
+
+## Memory map (efficient resume)
+| File | Use |
+|------|-----|
+| `DAILY_TODO.md` | Your daily ops checklist |
+| `PROGRESS.md` top | Restart checkpoint |
+| `TASKS.md` | Next coding priority |
+| `CONTEXT.md` | This file — decisions only |
+| `TESTING.md` | Test inventory |
+| `TOKEN_MANAGEMENT.md` | Context budget rules |
+| `docs/dev-guide.md` | How to run subsystems |
+
+## Next session one-liner
+Ops → `DAILY_TODO.md` post-open. Code → market-hours gate. Do not rebuild v1 stack.
+
+Last updated: 2026-07-19

@@ -1,30 +1,32 @@
 # Testing - neotrade
 
-## Approach
-- Prefer automated unit/integration tests for core logic.
-- Manual checks for Streamlit UI and live market-hours flows.
-- Performance characterization on Neo (latency, memory) tracked here and in scripts.
-
-## Test Suites
-| Area | Status | Notes |
-|------|--------|-------|
-| Smoke / package version | Active | `tests/test_smoke.py` |
-| Data pipeline | Not started | |
-| LightGBM signals | Not started | |
-| Multi-agent system | Not started | |
-| Paper trading / risk rules | Not started | |
-| Dashboard (manual) | Not started | |
-| Neo performance | Not started | |
-
-## How to Run
+## Run
 ```bash
-cd ~/dev/neotrade
 source .venv/bin/activate
-pip install -e ".[dev]"
 pytest -q
 ```
+Last full run (2026-07-19): **35 passed**.
 
-## Known Failures / Flakes
-- None yet.
+## Suites
+| Area | Files |
+|------|--------|
+| Smoke | `test_smoke.py` |
+| Config | `test_config.py` (22 tickers, sleeves, provider auto) |
+| Cache / fetch | `test_cache.py`, `test_fetch.py` |
+| Alpaca MD | `test_alpaca_md.py` |
+| Signals | `test_features.py`, `test_model.py` |
+| Broker / risk | `test_broker_plan.py`, `test_credentials.py` |
+| Agents | `test_agents.py` |
+| Bench / learning | `test_bench.py`, `test_learning.py` |
+| Dashboard | manual: `neotrade dashboard` |
 
-Last updated: 2026-07-15
+## Manual smoke
+```bash
+neotrade quotes && neotrade account && neotrade bench
+```
+
+## Env notes
+- LightGBM needs libomp (installed/verified)  
+- Live Alpaca/Ollama tests are CLI manual, not CI defaults  
+
+Last updated: 2026-07-19

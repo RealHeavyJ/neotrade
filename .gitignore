@@ -6,6 +6,7 @@ __pycache__/
 *.egg-info/
 .env
 models/
+!models/.gitkeep
 data/
 *.pyc
 .mypy_cache/
