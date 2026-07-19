@@ -7,12 +7,28 @@ Local-first paper-trading decision-support app for MacBook Neo (A18 Pro, 8GB).
 
 ## Quick Start
 
+### First-time setup (new machine or new venv)
+
 ```bash
 cd ~/dev/neotrade
 python -m venv .venv
 source .venv/bin/activate   # must source, not execute
-pip install -e ".[dev]"
-pytest
+pip install -e ".[dev]"     # install package + deps into this venv
+pytest -q
+```
+
+`pip install -e ".[dev]"` is **not** needed every day. Run it when:
+
+- Creating the venv the first time
+- On a new machine / after deleting `.venv`
+- After `pyproject.toml` dependencies change
+- If `neotrade` is missing from PATH or imports fail
+
+### Daily use (venv already set up)
+
+```bash
+cd ~/dev/neotrade
+source .venv/bin/activate   # must source, not execute
 neotrade tickers
 neotrade fetch              # OHLCV (Alpaca auto, yfinance fallback)
 neotrade quotes             # latest Alpaca market data prices
@@ -35,4 +51,20 @@ Secrets: `.env` only (gitignored). See `docs/dev-guide.md`.
 
 Local-only runtime; paper trading via Alpaca paper API; agents via Ollama.
 
-Daily checklist: `DAILY_TODO.md`
+Daily checklist: `DAILY_TODO.md`  
+Dev memory: `PROGRESS.md` · `TASKS.md` · `CONTEXT.md`  
+**Quality score (agents):** `QUALITY_SCORE.md` (floor 7.6 — changes must not regress) · `AGENTS.md`
+
+### Architecture (v1)
+
+```
+quotes/bars → features → LightGBM signals
+                              ↓
+                    risk plan (sleeves/caps)
+                              ↓
+              paper-plan / paper-execute (Alpaca paper)
+                              ↓
+              advise (local Ollama) · dashboard (Streamlit)
+```
+
+Advise is **narrative only** — it does not retrain LightGBM. Train only via `neotrade train`.

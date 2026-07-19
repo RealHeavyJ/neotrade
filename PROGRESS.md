@@ -39,17 +39,38 @@ neotrade advise | bench | dashboard
 - `.env` paper + `ALPACA_DATA_*`; feed iex
 - `pytest` **35 passed**
 
-### Next engineering (pick one)
-1. **Market-hours gate** on plan/execute (highest practical value)
-2. Advise → learning policy (ratings / when to retrain) — design first
-3. WebSocket quotes (optional; REST enough)
-4. LightGBM walk-forward (edge quality)
+### Code review / docs cleanup (DONE 2026-07-19)
+- `ScoreResult` replaces function-attr error side-channel
+- Removed dead `latest_trade_price` stub; ruff-clean
+- Google-style docstrings on core public APIs
+- Tests still **35 passed**
+
+### Score-back plan (review 7.6 → aim 8.5+)
+Full checklist in `TASKS.md` § “close senior-review gaps”. Summary:
+
+| Gap | Track |
+|-----|--------|
+| No session/hours gate | P0 market-hours |
+| ML edge unproven | P1 walk-forward / calibration / baselines |
+| Weak observability; broad excepts | P2 structured logging |
+| Advise log incomplete product story | P3 learning policy + dashboard parity |
+| No WS / partial-fill modeling | P4 optional realtime |
+
+### Next engineering (default)
+1. **P0 Market-hours gate** on plan/execute  
+2. Then P1 signal rigor or P3 advise policy (user choice)
+
+### Quality score (stored)
+- **`QUALITY_SCORE.md`**: overall **7.6**, floor **7.6**, target **8.5**
+- **`AGENTS.md`**: all agents must hold/raise score; never regress
+- Closing gaps (P0–P4) is how the score improves — see `TASKS.md`
 
 ### Next session bootstrap (minimal tokens)
-1. `DAILY_TODO.md` if operating the book  
-2. Else: this file (top) → `TASKS.md` → open **only** code for chosen track  
+1. Coding: **`QUALITY_SCORE.md`** → `AGENTS.md` → this file (top) → `TASKS.md`  
+2. Ops only: `DAILY_TODO.md`  
 3. `source .venv/bin/activate && pytest -q`  
-4. Do **not** re-read full history or rebuild scaffold/signals/agents unless broken
+4. One track that improves score; do not rebuild v1 unless broken  
+5. After quality-relevant work: update score log if dimensions moved
 
 ### Gotchas
 - `source .venv/bin/activate` (not execute)

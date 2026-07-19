@@ -1,10 +1,14 @@
-"""Entry point for neotrade."""
+"""CLI entry point for neotrade.
+
+Exposes subcommands for data, signals, paper trading, local agents, bench, and
+the Streamlit dashboard. Prefer importing library modules directly from
+``neotrade.*`` when embedding; this module is the console script surface only.
+"""
 
 from __future__ import annotations
 
 import argparse
 import sys
-
 from pathlib import Path
 
 from neotrade import __version__
@@ -23,11 +27,13 @@ DEFAULT_MODEL_PATH = Path("models/signal.txt")
 
 
 def _cmd_version(_: argparse.Namespace) -> int:
+    """Print package version."""
     print(f"neotrade v{__version__}")
     return 0
 
 
 def _cmd_tickers(args: argparse.Namespace) -> int:
+    """List configured universe tickers and sleeves."""
     cfg = load_tickers_config(args.config)
     print(f"universe: {cfg.universe.name} ({len(cfg.tickers)} tickers)")
     for t in cfg.tickers:
@@ -38,6 +44,7 @@ def _cmd_tickers(args: argparse.Namespace) -> int:
 
 
 def _cmd_fetch(args: argparse.Namespace) -> int:
+    """Download/refresh OHLCV into the local CSV cache."""
     cfg = load_tickers_config(args.config)
     root = project_root()
     cache_dir = resolve_cache_dir(cfg.data.cache_dir, root)
@@ -58,6 +65,7 @@ def _cmd_fetch(args: argparse.Namespace) -> int:
 
 
 def _resolve_model_path(path: str | None) -> Path:
+    """Resolve LightGBM artifact path relative to project root when needed."""
     p = Path(path) if path else DEFAULT_MODEL_PATH
     if not p.is_absolute():
         p = project_root() / p
@@ -65,6 +73,7 @@ def _resolve_model_path(path: str | None) -> Path:
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
+    """Fit LightGBM on cached bars and write ``models/signal.txt``."""
     cfg = load_tickers_config(args.config)
     root = project_root()
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
@@ -95,6 +104,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
 
 
 def _cmd_signals(args: argparse.Namespace) -> int:
+    """Print ranked buy/hold/sell table from the trained signal model."""
     cfg = load_tickers_config(args.config)
     root = project_root()
     model_path = _resolve_model_path(args.model)
@@ -104,27 +114,28 @@ def _cmd_signals(args: argparse.Namespace) -> int:
         return 1
     model = SignalModel.load(model_path)
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
-    rows = score_universe(
+    scored = score_universe(
         model,
         bars.frames,
         buy_threshold=args.buy_threshold,
         sell_threshold=args.sell_threshold,
     )
     print(f"{'SYMBOL':<8} {'PROBA':>7} {'SIDE':<5} AS_OF")
-    for row in rows:
+    for row in scored.rows:
         print(f"{row.symbol:<8} {row.proba:>7.3f} {row.side:<5} {row.as_of}")
-    errors = getattr(score_universe, "_last_errors", []) or []
+    errors = list(scored.errors)
     if bars.errors:
-        errors = list(errors) + list(bars.errors)
+        errors.extend(bars.errors)
     if errors:
         print("errors:", file=sys.stderr)
         for err in errors:
             print(f"  {err}", file=sys.stderr)
-        return 1 if not rows else 0
+        return 1 if not scored.rows else 0
     return 0
 
 
 def _load_signals_for_paper(args: argparse.Namespace):
+    """Shared path for paper-plan / paper-execute: config, risk, signals, prices."""
     cfg = load_tickers_config(args.config)
     root = project_root()
     risk = default_risk_limits(cfg)
@@ -135,17 +146,18 @@ def _load_signals_for_paper(args: argparse.Namespace):
         raise FileNotFoundError(f"model not found: {model_path} (run: neotrade train)")
     model = SignalModel.load(model_path)
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
-    rows = score_universe(
+    scored = score_universe(
         model,
         bars.frames,
         buy_threshold=buy_th,
         sell_threshold=sell_th,
     )
     prices = prices_for_plan(cfg, frames=bars.frames)
-    return cfg, risk, rows, prices
+    return cfg, risk, scored.rows, prices
 
 
 def _cmd_quotes(args: argparse.Namespace) -> int:
+    """Print latest Alpaca market-data prices (cache fallback)."""
     cfg = load_tickers_config(args.config)
     snap = fetch_universe_quotes(cfg, prefer_alpaca=not args.cache_only, fallback_cache=True)
     print(f"feed={snap.feed or 'n/a'} symbols={len(snap.rows)}")
@@ -165,6 +177,7 @@ def _cmd_quotes(args: argparse.Namespace) -> int:
 
 
 def _cmd_account(_: argparse.Namespace) -> int:
+    """Show paper account equity, filled positions, and open orders."""
     try:
         client = AlpacaPaperClient()
         acct = client.get_account()
@@ -195,6 +208,7 @@ def _cmd_account(_: argparse.Namespace) -> int:
 
 
 def _cmd_paper_plan(args: argparse.Namespace) -> int:
+    """Dry-run risk-aware order intents (no broker submit)."""
     try:
         cfg, risk, signals, prices = _load_signals_for_paper(args)
         client = AlpacaPaperClient()
@@ -220,6 +234,7 @@ def _cmd_paper_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_paper_execute(args: argparse.Namespace) -> int:
+    """Submit paper market orders; requires ``--confirm`` safety flag."""
     if not args.confirm:
         print("refusing execute without --confirm (dry-run: neotrade paper-plan)", file=sys.stderr)
         return 2
@@ -270,6 +285,7 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
 
 
 def _cmd_advise(args: argparse.Namespace) -> int:
+    """Run local LangGraph trading expert + performance analyst (Ollama)."""
     model_path = _resolve_model_path(args.model)
     if args.mock_llm:
         llm = MockLLM()
@@ -319,6 +335,7 @@ def _cmd_advise(args: argparse.Namespace) -> int:
 
 
 def _cmd_bench(_: argparse.Namespace) -> int:
+    """Benchmark local Ollama latency and LightGBM score speed."""
     report = run_full_bench(save=True)
     for line in report.summary_lines():
         print(line)
@@ -327,6 +344,7 @@ def _cmd_bench(_: argparse.Namespace) -> int:
 
 
 def _cmd_dashboard(args: argparse.Namespace) -> int:
+    """Launch the Streamlit dashboard subprocess."""
     import subprocess
 
     app = Path(__file__).resolve().parent / "dashboard" / "app.py"
@@ -348,6 +366,7 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Construct the top-level argparse tree for the ``neotrade`` console script."""
     parser = argparse.ArgumentParser(prog="neotrade", description="Local paper-trading decision support")
     parser.add_argument("--version", action="store_true", help="print version and exit")
     sub = parser.add_subparsers(dest="command")
@@ -429,6 +448,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Parse CLI args and dispatch to the selected subcommand handler."""
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.version:

@@ -1,4 +1,9 @@
-"""LightGBM binary classifier for directional signals."""
+"""LightGBM binary classifier for directional signals.
+
+Training labels come from :func:`~neotrade.signals.features.build_labeled_frame`
+(forward return > 0). Artifacts are plain-text boosters plus a ``.meta.json``
+sidecar for feature names and horizon.
+"""
 
 from __future__ import annotations
 
@@ -31,13 +36,24 @@ DEFAULT_PARAMS: dict[str, Any] = {
 
 @dataclass
 class TrainResult:
-    model: "SignalModel"
+    """Outcome of :meth:`SignalModel.fit`."""
+
+    model: SignalModel
     metrics: dict[str, float]
     n_train: int
     n_valid: int
 
 
 class SignalModel:
+    """Binary LightGBM wrapper for neotrade directional signals.
+
+    Args:
+        booster: Optional pre-loaded booster (used by :meth:`load`).
+        feature_names: Column order expected at predict time.
+        horizon: Label forward-return horizon in bars.
+        params: LightGBM train params (defaults favor small-memory Neo).
+    """
+
     def __init__(
         self,
         booster: lgb.Booster | None = None,
@@ -53,6 +69,7 @@ class SignalModel:
 
     @property
     def is_fitted(self) -> bool:
+        """True when a booster is loaded or after successful :meth:`fit`."""
         return self.booster is not None
 
     def fit(
@@ -63,6 +80,17 @@ class SignalModel:
         num_boost_round: int = 120,
         early_stopping_rounds: int = 20,
     ) -> TrainResult:
+        """Train on a map of symbol → OHLCV with a time-based validation split.
+
+        Args:
+            frames: Per-symbol OHLCV history.
+            valid_fraction: Fraction of unique dates held out at the end.
+            num_boost_round: Max boosting rounds.
+            early_stopping_rounds: Early stop patience (0 disables).
+
+        Returns:
+            :class:`TrainResult` with validation metrics.
+        """
         if not frames:
             raise ValueError("frames must be non-empty")
         if not 0.05 <= valid_fraction <= 0.5:
@@ -132,6 +160,7 @@ class SignalModel:
         )
 
     def predict_proba(self, ohlcv: pd.DataFrame) -> pd.Series:
+        """Return per-bar P(up) aligned to feature index."""
         if self.booster is None:
             raise RuntimeError("model is not fitted")
         feats = build_features(ohlcv)
@@ -140,21 +169,23 @@ class SignalModel:
         return pd.Series(proba, index=feats.index, name="signal_proba")
 
     def latest_signal(self, ohlcv: pd.DataFrame) -> float:
+        """Return the most recent bar's signal probability."""
         series = self.predict_proba(ohlcv)
         if series.empty:
             raise ValueError("no feature rows available for signal")
         return float(series.iloc[-1])
 
     def save(self, path: Path | str) -> Path:
+        """Persist booster + sidecar metadata next to ``path``.
+
+        Writes ``path`` (booster text) and ``path.suffix + ".meta.json"``.
+        """
         if self.booster is None:
             raise RuntimeError("cannot save unfitted model")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         model_path = path.with_suffix(".txt") if path.suffix == "" else path
         meta_path = model_path.with_suffix(model_path.suffix + ".meta.json")
-        if model_path.suffix != ".txt":
-            # allow models/signal.txt or models/signal.lgb
-            pass
         self.booster.save_model(str(model_path))
         meta = {
             "feature_names": self.feature_names,
@@ -166,7 +197,8 @@ class SignalModel:
         return model_path
 
     @classmethod
-    def load(cls, path: Path | str) -> "SignalModel":
+    def load(cls, path: Path | str) -> SignalModel:
+        """Load booster and optional ``.meta.json`` sidecar."""
         path = Path(path)
         meta_path = path.with_suffix(path.suffix + ".meta.json")
         feature_names = list(FEATURE_COLUMNS)

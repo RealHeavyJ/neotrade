@@ -79,13 +79,17 @@ If LightGBM ever fails with `libomp.dylib`: `brew reinstall libomp` then re-open
 
 ---
 
-## Backlog (when ready — not daily)
+## Engineering backlog (not daily ops)
 
-1. ~~Agent open-order prompt fix~~ (engineering)
-2. Market-hours gate on plan/execute
-3. Advise → learning policy (log ratings, when to retrain)
-4. WebSocket live quotes
-5. LightGBM walk-forward / better labels
+See **`TASKS.md`** → “Plan: close senior-review gaps” for full P0–P4 list.
+
+| Pri | Item |
+|-----|------|
+| P0 | Market-hours gate on plan/execute |
+| P1 | LightGBM walk-forward / calibration / baselines |
+| P2 | Structured logging; fewer bare excepts |
+| P3 | Advise learning policy + dashboard log parity |
+| P4 | WebSocket quotes; partial-fill-aware plan (optional) |
 
 ---
 

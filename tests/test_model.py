@@ -48,6 +48,6 @@ def test_fit_predict_save_load(tmp_path: Path):
     p2 = loaded.latest_signal(frames["AAA"])
     assert abs(p2 - proba) < 1e-6
 
-    rows = score_universe(loaded, frames)
-    assert len(rows) == 2
-    assert rows[0].proba >= rows[1].proba
+    scored = score_universe(loaded, frames)
+    assert len(scored.rows) == 2
+    assert scored.rows[0].proba >= scored.rows[1].proba

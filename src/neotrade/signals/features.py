@@ -1,4 +1,8 @@
-"""Technical features from OHLCV bars."""
+"""Technical features from OHLCV bars for LightGBM signals.
+
+All public feature names are listed in :data:`FEATURE_COLUMNS`. Frames must
+include columns Open, High, Low, Close, Volume with a DatetimeIndex.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ FEATURE_COLUMNS: tuple[str, ...] = (
 
 
 def _rsi(close: pd.Series, window: int = 14) -> pd.Series:
+    """Wilder-style RSI via EWM of gains/losses."""
     delta = close.diff()
     gain = delta.clip(lower=0.0)
     loss = (-delta).clip(lower=0.0)
@@ -34,7 +39,17 @@ def _rsi(close: pd.Series, window: int = 14) -> pd.Series:
 
 
 def build_features(ohlcv: pd.DataFrame) -> pd.DataFrame:
-    """Return feature frame aligned to ohlcv index; leading NaNs dropped."""
+    """Compute model features; drop leading rows with incomplete windows.
+
+    Args:
+        ohlcv: OHLCV frame with at least 60 bars.
+
+    Returns:
+        DataFrame with columns :data:`FEATURE_COLUMNS`, NaN-free.
+
+    Raises:
+        ValueError: Missing columns or insufficient history.
+    """
     required = {"Open", "High", "Low", "Close", "Volume"}
     missing = required - set(ohlcv.columns)
     if missing:
@@ -82,7 +97,15 @@ def build_features(ohlcv: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_labeled_frame(ohlcv: pd.DataFrame, *, horizon: int = 5) -> pd.DataFrame:
-    """Features plus binary label: forward close return over horizon > 0."""
+    """Features plus binary label: forward close return over ``horizon`` > 0.
+
+    Args:
+        ohlcv: OHLCV bars.
+        horizon: Forward-looking return window in bars (trading days for daily data).
+
+    Returns:
+        Feature columns plus ``fwd_ret`` and binary ``label``.
+    """
     if horizon < 1:
         raise ValueError("horizon must be >= 1")
     feats = build_features(ohlcv)

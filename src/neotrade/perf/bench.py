@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from neotrade.agents.llm import OllamaClient, OllamaConfig
+from neotrade.agents.llm import OllamaClient
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.data import load_universe_ohlcv

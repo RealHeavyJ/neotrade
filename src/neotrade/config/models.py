@@ -1,4 +1,8 @@
-"""Pydantic models for ticker universe and data settings."""
+"""Pydantic models for ticker universe, data, and risk settings.
+
+These models are the schema for ``config/tickers.yaml``. Field descriptions
+aid IDE hover docs and future OpenAPI / JSON-schema export.
+"""
 
 from __future__ import annotations
 
@@ -9,10 +13,15 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Ticker(BaseModel):
-    symbol: str
-    name: str = ""
-    sector: str = ""
-    sleeve: Literal["growth", "defensive"] = "growth"
+    """One tradable name in the neotrade universe."""
+
+    symbol: str = Field(..., description="Exchange ticker, normalized to uppercase")
+    name: str = Field(default="", description="Optional display name")
+    sector: str = Field(default="", description="GICS-style sector label")
+    sleeve: Literal["growth", "defensive"] = Field(
+        default="growth",
+        description="Portfolio sleeve for 68/32 diversification targets",
+    )
 
     @field_validator("symbol")
     @classmethod
@@ -24,21 +33,29 @@ class Ticker(BaseModel):
 
 
 class Universe(BaseModel):
+    """Named basket metadata (not used for routing)."""
+
     name: str = "default"
     currency: str = "USD"
     exchange_bias: str = "NYSE_NASDAQ"
 
 
 class DataSettings(BaseModel):
+    """OHLCV cache and provider preferences."""
+
     cache_dir: Path = Path("data/cache")
-    # auto = Alpaca bars first, yfinance fallback
-    provider: Literal["auto", "alpaca", "yfinance"] = "auto"
+    provider: Literal["auto", "alpaca", "yfinance"] = Field(
+        default="auto",
+        description="auto = Alpaca bars first, yfinance fallback",
+    )
     default_period: str = "1y"
     default_interval: str = "1d"
     max_age_hours: float = Field(default=24.0, gt=0)
 
 
 class RiskSettings(BaseModel):
+    """YAML-serializable risk knobs (mirrored by :class:`RiskLimits`)."""
+
     max_position_pct: float = Field(default=0.08, gt=0, le=0.5)
     growth_target_pct: float = Field(default=0.68, ge=0, le=1)
     defensive_target_pct: float = Field(default=0.32, ge=0, le=1)
@@ -51,6 +68,8 @@ class RiskSettings(BaseModel):
 
 
 class TickersConfig(BaseModel):
+    """Root config document for neotrade."""
+
     universe: Universe = Field(default_factory=Universe)
     tickers: list[Ticker]
     data: DataSettings = Field(default_factory=DataSettings)
@@ -67,4 +86,5 @@ class TickersConfig(BaseModel):
         return value
 
     def symbols(self) -> list[str]:
+        """Ordered list of configured ticker symbols."""
         return [t.symbol for t in self.tickers]

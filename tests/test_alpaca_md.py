@@ -1,9 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pandas as pd
 
-from neotrade.data.alpaca_md import AlpacaMarketDataClient, LatestQuote, LatestTrade
-from neotrade.data.quotes import QuoteRow, fetch_universe_quotes
+from neotrade.data.alpaca_md import AlpacaMarketDataClient
+from neotrade.data.quotes import fetch_universe_quotes
 from neotrade.config.models import Ticker, TickersConfig
 
 

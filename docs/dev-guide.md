@@ -3,14 +3,24 @@
 ## Layout
 
 ```
-config/tickers.yaml     # universe + data settings
+config/tickers.yaml
 src/neotrade/
-  config/               # pydantic models + YAML load
-  data/                 # yfinance fetch + CSV cache
-  main.py               # CLI
+  config/      # Pydantic schema + YAML load
+  data/        # cache, Alpaca MD, quotes, fetch
+  signals/     # features, LightGBM, score
+  broker/      # paper client, risk, trade plan
+  agents/      # LangGraph + Ollama
+  dashboard/   # Streamlit app
+  perf/        # local bench
+  learning/    # JSONL event log (not ML training)
+  main.py      # CLI only
 tests/
-data/cache/             # gitignored OHLCV CSVs
+data/cache/    # gitignored OHLCV
+models/        # gitignored signal.txt
 ```
+
+Docstrings use **Google style** (Args/Returns/Raises) for IDE hover and
+self-documenting tools. Prefer reading module/class docs over inline noise.
 
 ## Config
 

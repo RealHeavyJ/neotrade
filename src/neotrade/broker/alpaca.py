@@ -1,4 +1,10 @@
-"""Minimal Alpaca Trading API client (paper-first)."""
+"""Minimal Alpaca **Trading** API client (paper-first).
+
+Uses stdlib ``urllib`` + certifi SSL. Refuses non-paper credentials when
+constructed via :func:`~neotrade.broker.credentials.load_alpaca_credentials`.
+
+Market data lives in :mod:`neotrade.data.alpaca_md` (separate host).
+"""
 
 from __future__ import annotations
 
@@ -14,6 +20,8 @@ from neotrade.broker.credentials import AlpacaCredentials, load_alpaca_credentia
 
 
 class AlpacaAPIError(RuntimeError):
+    """HTTP error from the Alpaca trading API."""
+
     def __init__(self, status: int, body: str) -> None:
         super().__init__(f"Alpaca API {status}: {body}")
         self.status = status
@@ -32,6 +40,8 @@ def _ssl_context() -> ssl.SSLContext:
 
 @dataclass(frozen=True)
 class AccountSnapshot:
+    """Normalized paper account fields used by risk planning."""
+
     equity: float
     cash: float
     buying_power: float
@@ -43,7 +53,8 @@ class AccountSnapshot:
     account_blocked: bool
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "AccountSnapshot":
+    def from_api(cls, data: dict[str, Any]) -> AccountSnapshot:
+        """Build from Alpaca ``GET /v2/account`` JSON."""
         return cls(
             equity=float(data.get("equity") or 0),
             cash=float(data.get("cash") or 0),
@@ -59,6 +70,8 @@ class AccountSnapshot:
 
 @dataclass(frozen=True)
 class Position:
+    """Filled long/short position (not an open working order)."""
+
     symbol: str
     qty: float
     market_value: float
@@ -68,7 +81,8 @@ class Position:
     side: str
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "Position":
+    def from_api(cls, data: dict[str, Any]) -> Position:
+        """Build from Alpaca position object."""
         return cls(
             symbol=str(data["symbol"]).upper(),
             qty=float(data.get("qty") or 0),
@@ -82,6 +96,8 @@ class Position:
 
 @dataclass(frozen=True)
 class OrderResult:
+    """Subset of Alpaca order fields returned after submit."""
+
     id: str
     symbol: str
     side: str
@@ -91,7 +107,8 @@ class OrderResult:
     submitted_at: str
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "OrderResult":
+    def from_api(cls, data: dict[str, Any]) -> OrderResult:
+        """Build from Alpaca order JSON."""
         return cls(
             id=str(data.get("id") or ""),
             symbol=str(data.get("symbol") or "").upper(),
@@ -104,6 +121,13 @@ class OrderResult:
 
 
 class AlpacaPaperClient:
+    """Thin wrapper over Alpaca paper trading REST endpoints.
+
+    Args:
+        credentials: Optional preloaded credentials. Defaults to env / ``.env``
+            with ``require_paper=True``.
+    """
+
     def __init__(self, credentials: AlpacaCredentials | None = None) -> None:
         self.credentials = credentials or load_alpaca_credentials(require_paper=True)
         if not self.credentials.paper:
@@ -117,6 +141,7 @@ class AlpacaPaperClient:
         query: dict[str, str] | None = None,
         body: dict[str, Any] | None = None,
     ) -> Any:
+        """JSON request helper. ``path`` must include the ``/v2/...`` prefix."""
         url = f"{self.credentials.base_url}{path}"
         if query:
             url = f"{url}?{urlencode(query)}"
@@ -140,13 +165,16 @@ class AlpacaPaperClient:
             raise RuntimeError(f"Alpaca network/SSL error: {exc.reason}") from exc
 
     def get_account(self) -> AccountSnapshot:
+        """Return account equity, cash, and trading flags."""
         return AccountSnapshot.from_api(self._request("GET", "/v2/account"))
 
     def list_positions(self) -> list[Position]:
+        """Return filled positions only (not working orders)."""
         data = self._request("GET", "/v2/positions") or []
         return [Position.from_api(row) for row in data]
 
     def list_orders(self, *, status: str = "open", limit: int = 50) -> list[dict[str, Any]]:
+        """List orders by status (``open``, ``closed``, ``all``)."""
         data = self._request(
             "GET",
             "/v2/orders",
@@ -163,6 +191,10 @@ class AlpacaPaperClient:
         notional: float | None = None,
         time_in_force: str = "day",
     ) -> OrderResult:
+        """Submit a market order using either share qty or notional dollars.
+
+        Exactly one of ``qty`` or ``notional`` must be provided.
+        """
         if (qty is None) == (notional is None):
             raise ValueError("provide exactly one of qty or notional")
         side = side.lower()
@@ -183,8 +215,5 @@ class AlpacaPaperClient:
         return OrderResult.from_api(data)
 
     def cancel_all_orders(self) -> None:
+        """Cancel all open orders on the paper account."""
         self._request("DELETE", "/v2/orders")
-
-    def latest_trade_price(self, symbol: str) -> float | None:
-        """Best-effort last price via positions or empty."""
-        return None

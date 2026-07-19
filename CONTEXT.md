@@ -18,12 +18,19 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
 | Risk | 8% max name · 68/32 sleeves · execute needs `--confirm` |
 
+## Quality score (agents)
+- Canonical: **`QUALITY_SCORE.md`** — overall **7.6/10**, floor **7.6**, target **8.5**
+- Policy: code changes must **hold or raise** score; never regress below floor
+- Rules for all agents: **`AGENTS.md`**
+- Gap backlog to raise score: `TASKS.md` § senior-review gaps
+
 ## Layout (current)
 ```
 src/neotrade/
   config/ data/ signals/ broker/ agents/
   dashboard/ perf/ learning/ main.py
 config/tickers.yaml
+QUALITY_SCORE.md AGENTS.md
 DAILY_TODO.md PROGRESS.md TASKS.md CONTEXT.md
 ```
 
@@ -46,18 +53,30 @@ DAILY_TODO.md PROGRESS.md TASKS.md CONTEXT.md
 - Default advise-only vs more automation  
 - How aggressively to use learning logs (policy TBD)
 
+## Quality plan (from 2026-07-19 senior review ~7.6/10)
+What held the score back → tracked in `TASKS.md`:
+1. Market-hours / session gate (ops safety)
+2. Signal rigor (walk-forward, calibration, baselines)
+3. Structured logging + narrower error handling
+4. Advise learning policy (journal ≠ train)
+5. Optional WS / richer order lifecycle
+
+Do not treat advise prose as ML labels.
+
 ## Memory map (efficient resume)
 | File | Use |
 |------|-----|
+| `QUALITY_SCORE.md` | **Score floor + non-regression (agents first)** |
+| `AGENTS.md` | Mandatory agent rules |
 | `DAILY_TODO.md` | Your daily ops checklist |
 | `PROGRESS.md` top | Restart checkpoint |
-| `TASKS.md` | Next coding priority |
+| `TASKS.md` | Next coding priority + score-up backlog |
 | `CONTEXT.md` | This file — decisions only |
 | `TESTING.md` | Test inventory |
 | `TOKEN_MANAGEMENT.md` | Context budget rules |
 | `docs/dev-guide.md` | How to run subsystems |
 
 ## Next session one-liner
-Ops → `DAILY_TODO.md` post-open. Code → market-hours gate. Do not rebuild v1 stack.
+Ops → `DAILY_TODO.md` post-open. Code → P0 market-hours gate (raises score). Check `QUALITY_SCORE.md` first.
 
 Last updated: 2026-07-19

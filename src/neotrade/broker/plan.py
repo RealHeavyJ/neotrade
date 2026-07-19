@@ -1,4 +1,8 @@
-"""Build paper trade intents from signals + risk limits + current positions."""
+"""Build paper trade intents from signals + risk limits + current positions.
+
+Execution is intentionally separate (:meth:`AlpacaPaperClient.submit_market_order`)
+so dry-run planning never places orders.
+"""
 
 from __future__ import annotations
 
@@ -12,20 +16,34 @@ from neotrade.signals.score import SignalRow
 
 @dataclass(frozen=True)
 class OrderIntent:
+    """Single proposed market order before broker submit.
+
+    Attributes:
+        symbol: Ticker.
+        side: ``buy`` or ``sell``.
+        qty: Share quantity when set (mutually exclusive with ``notional``).
+        notional: Dollar amount when set (fractional share path).
+        reason: Short human explanation (usually signal proba).
+        sleeve: ``growth`` or ``defensive``.
+    """
+
     symbol: str
-    side: str  # buy | sell
+    side: str
     qty: float | None
     notional: float | None
     reason: str
     sleeve: str
 
     def describe(self) -> str:
+        """One-line CLI / log representation."""
         size = f"qty={self.qty}" if self.qty is not None else f"notional=${self.notional:.2f}"
         return f"{self.side.upper():4} {self.symbol:<6} {size}  [{self.sleeve}] {self.reason}"
 
 
 @dataclass
 class TradePlan:
+    """Risk-filtered set of order intents plus sleeve diagnostics."""
+
     intents: list[OrderIntent] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     equity: float = 0.0
@@ -34,6 +52,7 @@ class TradePlan:
     defensive_mv: float = 0.0
 
     def summary_lines(self) -> list[str]:
+        """Multi-line summary for CLI and agent context."""
         lines = [
             f"equity=${self.equity:,.2f} cash=${self.cash:,.2f}",
             f"sleeves: growth=${self.growth_mv:,.2f} defensive=${self.defensive_mv:,.2f}",
@@ -59,11 +78,28 @@ def build_trade_plan(
     risk: RiskLimits,
     prices: dict[str, float] | None = None,
 ) -> TradePlan:
-    """
-    v1 policy:
-    - Sell full position on sell signal (within universe).
-    - Buy buys with equal notional split of free sleeve budget, capped by max_position_pct.
-    - Dry-run friendly; execution is separate.
+    """Construct a v1 paper trade plan.
+
+    Policy:
+        * Full exit on ``sell`` signal for held names in the universe.
+        * New buys ranked by proba; skip names already held (no add-on).
+        * Size by min(max_position_pct equity, sleeve room, spendable cash).
+        * Prefer whole shares when a price is available; else notional.
+
+    Note:
+        Open / accepted orders are **not** modeled as positions. Pass only
+        filled :class:`Position` objects from the broker.
+
+    Args:
+        signals: Latest universe scores.
+        account: Equity / cash snapshot.
+        positions: Filled positions only.
+        cfg: Ticker + sleeve config.
+        risk: Validated risk limits.
+        prices: Optional symbol → last price for share sizing.
+
+    Returns:
+        :class:`TradePlan` (may contain zero intents with explanatory notes).
     """
     risk.validate()
     sleeves = sleeve_map(cfg)
@@ -75,7 +111,6 @@ def build_trade_plan(
     cash = max(account.cash, 0.0)
     plan = TradePlan(equity=equity, cash=cash)
 
-    # Current sleeve market values (universe only)
     growth_mv = 0.0
     defensive_mv = 0.0
     for symbol, p in pos.items():
@@ -91,7 +126,7 @@ def build_trade_plan(
 
     sig_by_sym = {s.symbol.upper(): s for s in signals if s.symbol.upper() in universe}
 
-    # 1) Exits
+    # --- exits ---
     for symbol, p in pos.items():
         if symbol not in universe:
             continue
@@ -114,7 +149,7 @@ def build_trade_plan(
             else:
                 defensive_mv -= max(p.market_value, 0.0)
 
-    # 2) Entries — free cash after min cash buffer
+    # --- entries (cash after min cash buffer) ---
     spendable = max(0.0, cash - equity * risk.min_cash_pct)
     if spendable < risk.min_notional:
         plan.notes.append("insufficient cash after min_cash_pct buffer")
@@ -129,8 +164,6 @@ def build_trade_plan(
 
     buys = [s for s in signals if s.side == "buy" and s.symbol.upper() in universe]
     buys.sort(key=lambda s: s.proba, reverse=True)
-
-    # skip names already held (v1: no add-on)
     buys = [s for s in buys if s.symbol.upper() not in pos]
 
     max_name = equity * risk.max_position_pct
@@ -152,7 +185,6 @@ def build_trade_plan(
         if notional < risk.min_notional:
             continue
 
-        # Prefer whole shares if price known; else notional order
         px = prices.get(symbol)
         qty: float | None = None
         order_notional: float | None = round(notional, 2)
@@ -162,9 +194,6 @@ def build_trade_plan(
                 qty = float(shares)
                 order_notional = None
                 notional = shares * px
-            else:
-                # fractional notional buy
-                pass
 
         plan.intents.append(
             OrderIntent(
