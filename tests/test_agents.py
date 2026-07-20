@@ -1,8 +1,30 @@
-from neotrade.agents.context import MarketContext
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pandas as pd
+
+from neotrade.agents.context import MarketContext, gather_market_context
 from neotrade.agents.graph import build_advise_graph, run_advise
 from neotrade.agents.llm import MockLLM
 from neotrade.agents.recommend import parse_advice
-from neotrade.signals.score import SignalRow
+from neotrade.broker.alpaca import AccountSnapshot
+from neotrade.config.models import RiskSettings, Ticker, TickersConfig
+from neotrade.signals.score import ScoreResult, SignalRow, score_universe
+
+
+def _synth_ohlcv(n: int = 120, seed: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    idx = pd.bdate_range("2024-01-02", periods=n)
+    rets = rng.normal(0.0005, 0.01, size=n)
+    close = 100 * np.cumprod(1 + rets)
+    open_ = np.r_[close[0], close[:-1]]
+    high = np.maximum(open_, close) * 1.01
+    low = np.minimum(open_, close) * 0.99
+    volume = rng.integers(1_000_000, 2_000_000, size=n)
+    return pd.DataFrame(
+        {"Open": open_, "High": high, "Low": low, "Close": close, "Volume": volume},
+        index=idx,
+    )
 
 
 def test_parse_advice():
@@ -66,3 +88,131 @@ def test_run_advise_with_injected_context(tmp_path):
     assert report.trader_raw
     assert report.analyst_raw
     assert report.stance in {"cautious", "bullish", "defensive", "neutral", "unknown"} or report.stance
+
+
+def test_score_result_not_used_as_market_context_signals():
+    """Regression: ScoreResult is not a list — MarketContext needs SignalRow list.
+
+    Bug: assigning score_universe() directly to ctx.signals made signals[:25]
+    raise TypeError: 'ScoreResult' object is not subscriptable.
+    """
+    scored = ScoreResult(
+        rows=[
+            SignalRow("ARM", 0.60, "buy", "2026-07-17"),
+            SignalRow("TSM", 0.55, "buy", "2026-07-17"),
+        ]
+    )
+    # Wrong pattern (historical bug) — ScoreResult is list-like now, but context
+    # must still store a real list for type clarity and plan builders.
+    assert isinstance(scored, ScoreResult)
+    ctx = MarketContext(universe="test", signals=list(scored.rows))
+    assert isinstance(ctx.signals, list)
+    assert all(isinstance(s, SignalRow) for s in ctx.signals)
+    block = ctx.to_prompt_block()
+    assert "ARM" in block and "TSM" in block
+    # Slicing MarketContext.signals must work (advise prompt path)
+    assert len(ctx.signals[:25]) == 2
+
+
+def test_gather_market_context_with_account_uses_ctx_signals(tmp_path):
+    """Regression: build_trade_plan must use ctx.signals, not undefined `signals`.
+
+    Bug: NameError: name 'signals' is not defined when include_account=True.
+    """
+    from neotrade.signals.model import SignalModel
+
+    frames = {"ARM": _synth_ohlcv(seed=1), "JNJ": _synth_ohlcv(seed=2)}
+    model = SignalModel(horizon=5)
+    model.fit(frames, num_boost_round=30, early_stopping_rounds=5)
+    model_path = tmp_path / "signal.txt"
+    model.save(model_path)
+
+    cfg = TickersConfig(
+        tickers=[
+            Ticker(symbol="ARM", sleeve="growth"),
+            Ticker(symbol="JNJ", sleeve="defensive"),
+        ],
+        risk=RiskSettings(),
+    )
+    acct = AccountSnapshot(
+        equity=100_000,
+        cash=100_000,
+        buying_power=100_000,
+        portfolio_value=100_000,
+        status="ACTIVE",
+        currency="USD",
+        pattern_day_trader=False,
+        trading_blocked=False,
+        account_blocked=False,
+    )
+    client = MagicMock()
+    client.get_account.return_value = acct
+    client.list_positions.return_value = []
+    client.list_orders.return_value = [
+        {"side": "buy", "symbol": "ARM", "qty": "10", "status": "accepted", "filled_qty": "0"}
+    ]
+
+    with (
+        patch("neotrade.agents.context.load_universe_ohlcv") as load_bars,
+        patch("neotrade.agents.context.AlpacaPaperClient", return_value=client),
+        patch("neotrade.agents.context.prices_for_plan", return_value={"ARM": 100.0, "JNJ": 150.0}),
+    ):
+        load_bars.return_value = MagicMock(frames=frames, errors=[])
+        ctx = gather_market_context(
+            model_path=model_path,
+            include_account=True,
+            cfg=cfg,
+        )
+
+    assert isinstance(ctx.signals, list)
+    assert len(ctx.signals) >= 1
+    assert any("filled_positions=0" in line for line in ctx.account_lines)
+    assert any("WORKING" in line or "open_unfilled" in line for line in ctx.account_lines)
+    # plan built successfully (no NameError); may be empty intents with notes
+    assert isinstance(ctx.plan_lines, list)
+    assert len(ctx.plan_lines) >= 1
+
+
+def test_run_advise_builds_context_without_nameerror(tmp_path):
+    """End-to-end advise path with mocked score + account (both regressions)."""
+    from neotrade.signals.model import SignalModel
+
+    frames = {"ARM": _synth_ohlcv(seed=3)}
+    model = SignalModel(horizon=5)
+    model.fit(frames, num_boost_round=30, early_stopping_rounds=5)
+    model_path = tmp_path / "signal.txt"
+    model.save(model_path)
+
+    cfg = TickersConfig(tickers=[Ticker(symbol="ARM", sleeve="growth")])
+    acct = AccountSnapshot(
+        equity=50_000,
+        cash=50_000,
+        buying_power=50_000,
+        portfolio_value=50_000,
+        status="ACTIVE",
+        currency="USD",
+        pattern_day_trader=False,
+        trading_blocked=False,
+        account_blocked=False,
+    )
+    client = MagicMock()
+    client.get_account.return_value = acct
+    client.list_positions.return_value = []
+    client.list_orders.return_value = []
+
+    with (
+        patch("neotrade.agents.context.load_tickers_config", return_value=cfg),
+        patch("neotrade.agents.context.load_universe_ohlcv") as load_bars,
+        patch("neotrade.agents.context.AlpacaPaperClient", return_value=client),
+        patch("neotrade.agents.context.prices_for_plan", return_value={"ARM": 200.0}),
+    ):
+        load_bars.return_value = MagicMock(frames=frames, errors=[])
+        report = run_advise(
+            model_path=model_path,
+            include_account=True,
+            llm=MockLLM(),
+        )
+
+    assert report.trader_raw
+    assert report.analyst_raw
+    assert not any("signals" in e.lower() and "not defined" in e.lower() for e in report.errors)

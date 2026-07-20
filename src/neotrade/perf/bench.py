@@ -95,13 +95,13 @@ def bench_signals(model_path: Path | None = None) -> tuple[float | None, int, li
     model = SignalModel.load(path)
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=project_root())
     t0 = time.perf_counter()
-    rows = score_universe(model, bars.frames)
+    scored = score_universe(model, bars.frames)
     elapsed = time.perf_counter() - t0
     if elapsed > 5:
         notes.append("signal scoring slow — check disk cache")
     else:
         notes.append("signal scoring OK")
-    return elapsed, len(rows), notes
+    return elapsed, len(scored.rows), notes
 
 
 def run_full_bench(*, save: bool = True) -> BenchReport:

@@ -58,13 +58,13 @@ def gather_market_context(
         raise FileNotFoundError(f"model not found: {model_path} (run: neotrade train)")
     model = SignalModel.load(model_path)
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
-    signals = score_universe(
+    scored = score_universe(
         model,
         bars.frames,
         buy_threshold=risk.buy_threshold,
         sell_threshold=risk.sell_threshold,
     )
-    ctx = MarketContext(universe=cfg.universe.name, signals=signals)
+    ctx = MarketContext(universe=cfg.universe.name, signals=list(scored.rows))
 
     if not include_account:
         return ctx
@@ -111,7 +111,7 @@ def gather_market_context(
         else:
             ctx.account_lines.append("Open unfilled orders: none")
         plan = build_trade_plan(
-            signals=signals,
+            signals=ctx.signals,
             account=acct,
             positions=positions,
             cfg=cfg,

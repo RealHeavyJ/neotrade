@@ -51,3 +51,8 @@ def test_fit_predict_save_load(tmp_path: Path):
     scored = score_universe(loaded, frames)
     assert len(scored.rows) == 2
     assert scored.rows[0].proba >= scored.rows[1].proba
+    # ScoreResult must support list-like use (dashboard/agents regressions)
+    assert len(scored) == 2
+    assert scored[0].proba >= scored[1].proba
+    assert len(scored[:1]) == 1
+    assert list(scored)[0].symbol in {"AAA", "BBB"}

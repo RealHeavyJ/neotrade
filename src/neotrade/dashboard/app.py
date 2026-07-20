@@ -28,7 +28,7 @@ def load_signals_cached(model_path: str, buy_th: float, sell_th: float) -> pd.Da
         return pd.DataFrame()
     model = SignalModel.load(path)
     bars = load_universe_ohlcv(cfg, force_refresh=False, root=project_root())
-    rows = score_universe(model, bars.frames, buy_threshold=buy_th, sell_threshold=sell_th)
+    scored = score_universe(model, bars.frames, buy_threshold=buy_th, sell_threshold=sell_th)
     sleeves = {t.symbol: t.sleeve for t in cfg.tickers}
     return pd.DataFrame(
         [
@@ -39,7 +39,7 @@ def load_signals_cached(model_path: str, buy_th: float, sell_th: float) -> pd.Da
                 "as_of": r.as_of,
                 "sleeve": sleeves.get(r.symbol, ""),
             }
-            for r in rows
+            for r in scored.rows
         ]
     )
 
@@ -182,7 +182,7 @@ def page_plan() -> None:
         risk = default_risk_limits(cfg)
         model = SignalModel.load(DEFAULT_MODEL)
         bars = load_universe_ohlcv(cfg, force_refresh=False, root=project_root())
-        signals = score_universe(
+        scored = score_universe(
             model,
             bars.frames,
             buy_threshold=risk.buy_threshold,
@@ -192,7 +192,7 @@ def page_plan() -> None:
         acct = client.get_account()
         positions = client.list_positions()
         plan = build_trade_plan(
-            signals=signals,
+            signals=scored.rows,
             account=acct,
             positions=positions,
             cfg=cfg,

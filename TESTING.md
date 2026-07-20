@@ -16,7 +16,7 @@ Last full run (2026-07-19): **35 passed**.
 | Alpaca MD | `test_alpaca_md.py` |
 | Signals | `test_features.py`, `test_model.py` |
 | Broker / risk | `test_broker_plan.py`, `test_credentials.py` |
-| Agents | `test_agents.py` |
+| Agents | `test_agents.py` (incl. ScoreResult + gather context regressions) |
 | Bench / learning | `test_bench.py`, `test_learning.py` |
 | Dashboard | manual: `neotrade dashboard` |
 

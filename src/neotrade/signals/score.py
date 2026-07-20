@@ -58,6 +58,10 @@ class ScoreResult:
     def __len__(self) -> int:
         return len(self.rows)
 
+    def __getitem__(self, index):
+        """Index/slice rows (``result[0]``, ``result[:25]``)."""
+        return self.rows[index]
+
 
 def side_from_proba(
     proba: float,
