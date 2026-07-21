@@ -32,6 +32,9 @@ log = get_logger("monitor.stream")
 DEFAULT_WS_HOST = "wss://stream.data.alpaca.markets"
 # Free/paper default feed path segment
 DEFAULT_WS_FEED = "iex"
+# Free IEX plans typically allow ~30 concurrent symbol subscriptions.
+# Trades+quotes both count toward the limit on many plans.
+DEFAULT_MAX_SYMBOLS = 30
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -49,6 +52,43 @@ def stream_url(*, feed: str | None = None, host: str | None = None) -> str:
     feed = (feed or os.environ.get("ALPACA_DATA_FEED") or data_feed() or DEFAULT_WS_FEED).lower()
     # sandbox/test: wss://stream.data.sandbox.alpaca.markets/v2/iex
     return f"{host}/v2/{feed}"
+
+
+def max_stream_symbols() -> int:
+    """Max symbols per WS subscribe (free-tier safe default)."""
+    raw = (os.environ.get("NEOTRADE_STREAM_MAX_SYMBOLS") or str(DEFAULT_MAX_SYMBOLS)).strip()
+    try:
+        n = int(raw)
+    except ValueError:
+        n = DEFAULT_MAX_SYMBOLS
+    return max(1, n)
+
+
+def limit_symbols(
+    symbols: Iterable[str],
+    *,
+    max_symbols: int | None = None,
+    prefer: Iterable[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Return (kept, dropped) under free-tier symbol cap.
+
+    Prefer list order is honored first, then remaining alphabetically.
+    """
+    cap = max_symbols if max_symbols is not None else max_stream_symbols()
+    uniq = sorted({s.strip().upper() for s in symbols if s and str(s).strip()})
+    if not uniq:
+        return [], []
+    preferred = [s.strip().upper() for s in (prefer or []) if s and str(s).strip()]
+    ordered: list[str] = []
+    for s in preferred:
+        if s in uniq and s not in ordered:
+            ordered.append(s)
+    for s in uniq:
+        if s not in ordered:
+            ordered.append(s)
+    if len(ordered) <= cap:
+        return ordered, []
+    return ordered[:cap], ordered[cap:]
 
 
 @dataclass
@@ -191,6 +231,7 @@ def parse_stream_messages(
             continue
         if msg_type == "subscription":
             log.info("ws subscription ack trades=%s quotes=%s", msg.get("trades"), msg.get("quotes"))
+            # empty ack after error often means subscribe rejected
             continue
         # data: trade
         if msg_type == "t":
@@ -245,25 +286,40 @@ class QuoteStream:
         credentials: AlpacaCredentials | None = None,
         feed: str | None = None,
         subscribe_trades: bool = True,
-        subscribe_quotes: bool = True,
+        subscribe_quotes: bool = False,
         on_update: Callable[[StreamQuote], None] | None = None,
         url: str | None = None,
         max_messages: int | None = None,
         idle_timeout_s: float | None = None,
+        max_symbols: int | None = None,
     ) -> None:
-        self.symbols = sorted({s.strip().upper() for s in symbols if s and s.strip()})
+        kept, dropped = limit_symbols(symbols, max_symbols=max_symbols)
+        self.symbols = kept
+        self.dropped_symbols = dropped
         if not self.symbols:
             raise ValueError("symbols must be non-empty")
         self.credentials = credentials or load_alpaca_credentials(require_paper=True)
         self.feed = (feed or data_feed() or DEFAULT_WS_FEED).lower()
+        # Default trades-only: free IEX symbol budget is tight; quotes optional.
         self.subscribe_trades = subscribe_trades
         self.subscribe_quotes = subscribe_quotes
+        if not self.subscribe_trades and not self.subscribe_quotes:
+            self.subscribe_trades = True
         self.on_update = on_update
         self.url = url or stream_url(feed=self.feed)
         self.max_messages = max_messages
         self.idle_timeout_s = idle_timeout_s
         self.state = StreamState()
         self._stop = asyncio.Event()
+        if self.dropped_symbols:
+            log.warning(
+                "ws symbol cap=%s; streaming %s names, dropped %s: %s",
+                max_symbols if max_symbols is not None else max_stream_symbols(),
+                len(self.symbols),
+                len(self.dropped_symbols),
+                ",".join(self.dropped_symbols[:12])
+                + ("..." if len(self.dropped_symbols) > 12 else ""),
+            )
 
     def request_stop(self) -> None:
         """Signal the running loop to exit."""
@@ -327,14 +383,21 @@ class QuoteStream:
                     sub["trades"] = self.symbols
                 if self.subscribe_quotes:
                     sub["quotes"] = self.symbols
-                if not self.subscribe_trades and not self.subscribe_quotes:
-                    sub["trades"] = self.symbols
                 await ws.send(json.dumps(sub))
 
                 last_data = time.monotonic()
                 while not self._stop.is_set():
                     if self.max_messages is not None and self.state.message_count >= self.max_messages:
                         break
+                    # Fail fast on subscribe limit / hard errors (don't burn --seconds idle)
+                    err_l = (self.state.last_error or "").lower()
+                    if "symbol limit" in err_l or "not authorized" in err_l:
+                        raise RuntimeError(
+                            f"websocket subscribe failed: {self.state.last_error}. "
+                            f"Free IEX caps concurrent symbols (often ~{DEFAULT_MAX_SYMBOLS}). "
+                            "Try: neotrade stream --symbols NVDA,AMD,ARM -v "
+                            "or trades-only (default). Quotes: add --quotes with fewer names."
+                        )
                     timeout = 1.0
                     try:
                         raw = await asyncio.wait_for(ws.recv(), timeout=timeout)
@@ -355,10 +418,7 @@ class QuoteStream:
                         payload = json.loads(raw)
                     except json.JSONDecodeError:
                         continue
-                    before = self.state.message_count
                     parse_stream_messages(payload, self.state, on_update=self.on_update)
-                    # control-only messages still advance wall clock via last_data
-                    _ = before
         finally:
             self.state.connected = False
             log.info(
@@ -382,10 +442,14 @@ def run_stream_cli(
     max_messages: int | None = None,
     verbose: bool = False,
     feed: str | None = None,
+    subscribe_trades: bool = True,
+    subscribe_quotes: bool = False,
+    max_symbols: int | None = None,
 ) -> StreamState:
     """Run stream for ``seconds`` or until ``max_messages``, print updates.
 
     Used by ``neotrade stream``. Never places orders.
+    Defaults to **trades only** and caps symbols for free IEX limits.
     """
     stop_at = None if seconds is None else time.monotonic() + max(1.0, float(seconds))
 
@@ -399,9 +463,12 @@ def run_stream_cli(
     stream = QuoteStream(
         symbols,
         feed=feed,
+        subscribe_trades=subscribe_trades,
+        subscribe_quotes=subscribe_quotes,
         on_update=on_update if verbose else None,
         max_messages=max_messages,
         idle_timeout_s=None,
+        max_symbols=max_symbols,
     )
 
     async def _bounded() -> StreamState:
@@ -412,18 +479,47 @@ def run_stream_cli(
                     stream._stop.set()
                     break
                 await asyncio.sleep(0.25)
-            return await task
+            return await asyncio.wait_for(task, timeout=5.0)
+        except TimeoutError:
+            stream._stop.set()
+            try:
+                return await task
+            except Exception:
+                return stream.state
         except asyncio.CancelledError:
             stream._stop.set()
             return await task
+        except Exception:
+            # propagate run() failures (e.g. symbol limit)
+            if not task.done():
+                stream._stop.set()
+                try:
+                    await task
+                except Exception:
+                    pass
+            raise
 
+    channels = []
+    if stream.subscribe_trades:
+        channels.append("trades")
+    if stream.subscribe_quotes:
+        channels.append("quotes")
     print(
         f"stream start feed={stream.feed} symbols={len(stream.symbols)} "
+        f"channels={'+'.join(channels) or 'trades'} "
         f"seconds={seconds} max_messages={max_messages} "
         f"(monitor only; execute never called)",
         flush=True,
     )
+    if stream.dropped_symbols:
+        print(
+            f"note: free-tier cap — dropped {len(stream.dropped_symbols)} symbols: "
+            f"{','.join(stream.dropped_symbols[:15])}"
+            + ("..." if len(stream.dropped_symbols) > 15 else ""),
+            flush=True,
+        )
     print(f"url={stream.url}", flush=True)
+    print(f"watching: {','.join(stream.symbols)}", flush=True)
     state = asyncio.run(_bounded())
     print(
         f"stream done messages={state.message_count} "
@@ -442,5 +538,9 @@ def run_stream_cli(
         print(f"{q.symbol:<8} {px_s:>10} bid={bid_s:>8} ask={ask_s:>8} {q.source}")
     if not state.snapshot():
         now = datetime.now(timezone.utc).isoformat()
-        print(f"note: no trade/quote ticks received by {now} (market closed or quiet tape)")
+        print(
+            f"note: no trade/quote ticks by {now} "
+            "(outside RTH, quiet tape, or subscribe rejected — see last_error)",
+            flush=True,
+        )
     return state

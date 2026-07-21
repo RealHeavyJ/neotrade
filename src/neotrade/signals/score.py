@@ -14,7 +14,6 @@ import pandas as pd
 from neotrade.logging_config import get_logger
 from neotrade.signals.features import (
     CS_FEATURE_COLUMNS,
-    FEATURE_COLUMNS,
     add_cross_section_features,
     build_features,
 )

@@ -564,6 +564,12 @@ def _cmd_stream(args: argparse.Namespace) -> int:
     if args.symbols:
         symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     seconds = None if args.until_interrupt else float(args.seconds)
+    # Default trades-only (free IEX symbol budget). --quotes adds quote channel.
+    subscribe_quotes = bool(args.quotes)
+    subscribe_trades = not bool(args.quotes_only)
+    if args.quotes_only:
+        subscribe_quotes = True
+        subscribe_trades = False
     try:
         state = run_stream_cli(
             symbols,
@@ -571,6 +577,9 @@ def _cmd_stream(args: argparse.Namespace) -> int:
             max_messages=args.max_messages,
             verbose=args.verbose,
             feed=args.feed,
+            subscribe_trades=subscribe_trades,
+            subscribe_quotes=subscribe_quotes,
+            max_symbols=args.max_symbols,
         )
     except KeyboardInterrupt:
         print("stream stopped", flush=True)
@@ -580,6 +589,12 @@ def _cmd_stream(args: argparse.Namespace) -> int:
         print(f"stream failed: {exc}", file=sys.stderr)
         return 1
     if state.last_error and not state.quotes:
+        err = state.last_error.lower()
+        if "symbol limit" in err:
+            print(
+                "hint: reduce symbols, e.g. neotrade stream --symbols NVDA,AMD,ARM,TSM -v",
+                file=sys.stderr,
+            )
         return 1
     return 0
 
@@ -643,14 +658,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_stream = sub.add_parser(
         "stream",
-        help="Alpaca WebSocket quotes/trades (IEX; watch only, never executes)",
+        help="Alpaca WebSocket trades (IEX; watch only). Free tier: limited symbols.",
     )
     p_stream.add_argument("--config", type=str, default=None)
     p_stream.add_argument(
         "--symbols",
         type=str,
         default=None,
-        help="comma-separated symbols (default: full universe)",
+        help="comma-separated symbols (default: universe, capped for free IEX)",
     )
     p_stream.add_argument(
         "--seconds",
@@ -666,6 +681,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_stream.add_argument("--max-messages", type=int, default=None, help="stop after N data msgs")
     p_stream.add_argument("--feed", type=str, default=None, help="iex (default) or sip")
     p_stream.add_argument("--verbose", "-v", action="store_true", help="print each tick")
+    p_stream.add_argument(
+        "--quotes",
+        action="store_true",
+        help="also subscribe quotes (uses more of free symbol budget)",
+    )
+    p_stream.add_argument(
+        "--quotes-only",
+        action="store_true",
+        help="subscribe quotes only (no trades)",
+    )
+    p_stream.add_argument(
+        "--max-symbols",
+        type=int,
+        default=None,
+        help="cap symbols (default 30 / NEOTRADE_STREAM_MAX_SYMBOLS)",
+    )
     p_stream.set_defaults(func=_cmd_stream)
 
     p_train = sub.add_parser("train", help="train LightGBM signal model on cached OHLCV")

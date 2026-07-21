@@ -8,8 +8,10 @@ from unittest.mock import patch
 import pytest
 
 from neotrade.monitor.stream import (
+    DEFAULT_MAX_SYMBOLS,
     QuoteStream,
     StreamState,
+    limit_symbols,
     parse_stream_messages,
     stream_url,
 )
@@ -18,6 +20,40 @@ from neotrade.monitor.stream import (
 def test_stream_url_iex_default():
     url = stream_url(feed="iex", host="wss://stream.data.alpaca.markets")
     assert url == "wss://stream.data.alpaca.markets/v2/iex"
+
+
+def test_limit_symbols_caps_and_prefers():
+    kept, dropped = limit_symbols(
+        [f"S{i:02d}" for i in range(40)],
+        max_symbols=5,
+        prefer=["S05", "S01"],
+    )
+    assert len(kept) == 5
+    assert kept[0] == "S05" and kept[1] == "S01"
+    assert len(dropped) == 35
+
+
+def test_quote_stream_default_trades_only_and_caps():
+    from neotrade.broker.credentials import AlpacaCredentials
+
+    creds = AlpacaCredentials(
+        api_key="PK",
+        secret_key="SK",
+        base_url="https://paper-api.alpaca.markets",
+        paper=True,
+    )
+    many = [f"S{i:02d}" for i in range(DEFAULT_MAX_SYMBOLS + 5)]
+    stream = QuoteStream(many, credentials=creds, max_symbols=DEFAULT_MAX_SYMBOLS)
+    assert len(stream.symbols) == DEFAULT_MAX_SYMBOLS
+    assert len(stream.dropped_symbols) == 5
+    assert stream.subscribe_trades is True
+    assert stream.subscribe_quotes is False
+
+
+def test_parse_symbol_limit_error():
+    state = StreamState()
+    parse_stream_messages([{"T": "error", "msg": "symbol limit exceeded"}], state)
+    assert "symbol limit" in state.last_error.lower()
 
 
 def test_parse_auth_and_trade():

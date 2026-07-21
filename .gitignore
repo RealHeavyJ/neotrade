@@ -12,3 +12,6 @@ models/
 .mypy_cache/
 dist/
 build/
+.coverage
+coverage.xml
+htmlcov/

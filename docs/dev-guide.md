@@ -142,16 +142,21 @@ neotrade monitor --max-ticks 10 --move-pct 1.5
 ### WebSocket stream (optional realtime)
 
 ```bash
-neotrade stream --seconds 30 -v          # IEX trades/quotes, then summary
-neotrade stream --symbols NVDA,ARM --seconds 60
-neotrade stream --until-interrupt -v     # Ctrl+C to stop
+neotrade stream --seconds 30 -v                    # trades only, universe capped
+neotrade stream --symbols NVDA,AMD,ARM,TSM -v      # recommended on free IEX
+neotrade stream --quotes --symbols NVDA,AMD -v     # trades+quotes (fewer names)
+neotrade stream --until-interrupt -v
 ```
 
 - URL: `wss://stream.data.alpaca.markets/v2/iex` (override host via `ALPACA_DATA_WS`).
 - Feed default `iex` (free/paper). `sip` needs a paid plan.
+- **Free IEX symbol cap** (~30). Default: **trades only**, auto-cap via
+  `NEOTRADE_STREAM_MAX_SYMBOLS` (default 30). Full 22-name trades+quotes often
+  errors with `symbol limit exceeded`.
 - **Monitor only** — never places orders; RTH execute gate unchanged.
 - Outside RTH you may connect but receive few/no ticks.
 - Dep: `websockets` (in project dependencies).
+- Full universe prices anytime: `neotrade quotes` / `neotrade monitor` (REST).
 
 ## Agents (LangGraph + Ollama) — fully local
 
@@ -239,10 +244,14 @@ neotrade advise --rating 4 --notes "useful"
 - CLI and dashboard both call `record_advice_run`.
 - User-facing: `docs/user-guide.md`.
 
-## Tests
+## Tests & CI
 
 ```bash
 pytest -q
+ruff check src/neotrade tests
+pytest -q --cov=neotrade --cov-report=term-missing
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`): matrix Python **3.11 / 3.12**, ruff, pytest-cov, Codecov upload (optional repo secret `CODECOV_TOKEN`).
 
 Fetch tests mock the network; model tests use synthetic OHLCV; agents use MockLLM.

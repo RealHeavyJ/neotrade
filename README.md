@@ -1,9 +1,22 @@
 # neotrade
 
+[![CI](https://github.com/RealHeavyJ/neotrade/actions/workflows/ci.yml/badge.svg)](https://github.com/RealHeavyJ/neotrade/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/RealHeavyJ/neotrade/branch/main/graph/badge.svg)](https://codecov.io/gh/RealHeavyJ/neotrade)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![pytest](https://img.shields.io/badge/tests-94%20passed-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![coverage](https://img.shields.io/badge/coverage-68%25-yellow)](https://codecov.io/gh/RealHeavyJ/neotrade)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Quality](https://img.shields.io/badge/quality_score-8.8%2F10-brightgreen)](QUALITY_SCORE.md)
+[![Paper only](https://img.shields.io/badge/trading-paper%20only-orange)](docs/user-guide.md)
+[![Local LLM](https://img.shields.io/badge/LLM-Ollama%20local-purple)](docs/dev-guide.md)
+[![RTH gate](https://img.shields.io/badge/execute-US%20RTH%20only-critical)](docs/user-guide.md)
+[![License](https://img.shields.io/badge/license-proprietary-lightgrey)](README.md)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/RealHeavyJ/neotrade/pulls)
+
 Local-first paper-trading decision-support app for MacBook Neo (A18 Pro, 8GB).
 
-**Status**: v1 loop live (signals · Alpaca paper/MD · Ollama agents · dashboard).  
-**You**: `DAILY_TODO.md` daily. **Dev**: `PROGRESS.md` / `TASKS.md` (next: market-hours gate).
+**Status**: v1 loop live (signals · Alpaca paper/MD · Ollama agents · dashboard · backtest gate).  
+**You**: `DAILY_TODO.md` daily. **Dev**: `PROGRESS.md` / `TASKS.md` · score floor in `QUALITY_SCORE.md`.
 
 ## Quick Start
 
@@ -33,7 +46,7 @@ neotrade tickers
 neotrade fetch              # OHLCV (Alpaca auto, yfinance fallback)
 neotrade quotes             # latest Alpaca market data prices
 neotrade monitor --once     # one poll; or --interval 15 (watch only)
-neotrade stream --seconds 30 -v   # Alpaca IEX WebSocket (watch only)
+neotrade stream --symbols NVDA,AMD,ARM,TSM -v   # IEX WebSocket (watch only)
 neotrade train              # LightGBM -> models/signal.txt
 neotrade eval               # walk-forward vs baselines (ML rigor)
 neotrade backtest           # portfolio WF BT + promotion gate
@@ -75,3 +88,20 @@ quotes/bars → features → LightGBM signals
 ```
 
 Advise is **narrative only** — it does not retrain LightGBM. Train only via `neotrade train`.
+
+## Badges & CI
+
+| Badge | Meaning |
+|-------|---------|
+| **CI** | GitHub Actions: install, ruff, pytest on Python 3.11 & 3.12 |
+| **codecov** | Line coverage uploaded from CI (optional `CODECOV_TOKEN` secret) |
+| **Python 3.11+** | Minimum supported runtime |
+| **Quality** | Internal score from `QUALITY_SCORE.md` (agents must not regress) |
+| **Paper only / RTH** | Safety posture: no live trading; execute only US regular hours |
+
+```bash
+# same checks as CI (local)
+source .venv/bin/activate
+ruff check src/neotrade tests
+pytest -q --cov=neotrade --cov-report=term-missing
+```
