@@ -17,7 +17,7 @@ from neotrade.signals.eval import (
 from neotrade.signals.features import build_labeled_frame
 
 
-def _synth(n: int = 200, seed: int = 0, drift: float = 0.0003) -> pd.DataFrame:
+def _synth(n: int = 240, seed: int = 0, drift: float = 0.0003) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range("2023-01-03", periods=n)
     # mild momentum structure
@@ -40,7 +40,7 @@ def test_leakage_report_ok():
     rep = check_leakage(horizon=5)
     assert rep.ok is True
     assert rep.label_horizon_bars == 5
-    assert rep.max_feature_lookback_bars >= 50
+    assert rep.max_feature_lookback_bars >= 50  # includes ret_60 window
     assert any("shift" in n.lower() or "forward" in n.lower() or "Label" in n for n in rep.notes)
 
 
@@ -119,3 +119,13 @@ def test_walk_forward_rejects_too_few_folds():
 def test_build_panel_requires_data():
     with pytest.raises(ValueError, match="no labeled"):
         build_panel({"X": _synth(n=30)})  # too short for features
+
+
+def test_build_panel_has_cs_and_relative_labels():
+    frames = {"A": _synth(n=120, seed=1), "B": _synth(n=120, seed=2)}
+    panel = build_panel(frames, horizon=5, relative_label=True)
+    assert "cs_rank_ret_5" in panel.columns
+    assert set(panel["label"].unique()).issubset({0, 1})
+    # relative labels should be ~balanced vs always-long absolute
+    if "label_absolute" in panel.columns:
+        assert panel["label"].mean() != pytest.approx(panel["label_absolute"].mean(), abs=0.0)

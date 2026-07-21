@@ -33,8 +33,10 @@ neotrade tickers
 neotrade fetch              # OHLCV (Alpaca auto, yfinance fallback)
 neotrade quotes             # latest Alpaca market data prices
 neotrade monitor --once     # one poll; or --interval 15 (watch only)
+neotrade stream --seconds 30 -v   # Alpaca IEX WebSocket (watch only)
 neotrade train              # LightGBM -> models/signal.txt
 neotrade eval               # walk-forward vs baselines (ML rigor)
+neotrade backtest           # portfolio WF BT + promotion gate
 neotrade signals            # score universe
 # Paper (after copying .env.example -> .env with paper keys):
 neotrade session              # US RTH? execute allowed?

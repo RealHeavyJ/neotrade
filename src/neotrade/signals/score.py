@@ -1,16 +1,23 @@
 """Score a ticker universe with a fitted :class:`~neotrade.signals.model.SignalModel`.
 
-Maps latest P(up) estimates to discrete sides (buy / hold / sell) using
-configurable probability thresholds.
+Builds a same-day cross-section of lagging features so CS ranks match training,
+then maps latest scores to buy/hold/sell.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from neotrade.logging_config import get_logger
+from neotrade.signals.features import (
+    CS_FEATURE_COLUMNS,
+    FEATURE_COLUMNS,
+    add_cross_section_features,
+    build_features,
+)
 from neotrade.signals.model import SignalModel
 
 log = get_logger("signals.score")
@@ -22,7 +29,8 @@ class SignalRow:
 
     Attributes:
         symbol: Ticker symbol (uppercase).
-        proba: Model P(forward return > 0) in ``[0, 1]``.
+        proba: Model score in ``[0, 1]`` (P(relative outperformance) when
+            trained with ``label_mode=relative``).
         side: Discrete action label: ``buy``, ``hold``, or ``sell``.
         as_of: Date string of the bar used for the score.
     """
@@ -44,25 +52,18 @@ class SignalRow:
 
 @dataclass
 class ScoreResult:
-    """Universe scoring output including per-symbol failures.
-
-    Attributes:
-        rows: Scores sorted by ``proba`` descending.
-        errors: Human-readable per-symbol error messages (empty if all ok).
-    """
+    """Universe scoring output including per-symbol failures."""
 
     rows: list[SignalRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     def __iter__(self):
-        """Iterate score rows (allows ``for row in score_universe(...)``)."""
         return iter(self.rows)
 
     def __len__(self) -> int:
         return len(self.rows)
 
     def __getitem__(self, index):
-        """Index/slice rows (``result[0]``, ``result[:25]``)."""
         return self.rows[index]
 
 
@@ -72,21 +73,39 @@ def side_from_proba(
     buy_threshold: float = 0.55,
     sell_threshold: float = 0.45,
 ) -> str:
-    """Map a probability to a discrete side.
-
-    Args:
-        proba: Predicted P(up).
-        buy_threshold: Inclusive lower bound for ``buy``.
-        sell_threshold: Inclusive upper bound for ``sell``.
-
-    Returns:
-        ``buy``, ``sell``, or ``hold``.
-    """
+    """Map a probability to a discrete side."""
     if proba >= buy_threshold:
         return "buy"
     if proba <= sell_threshold:
         return "sell"
     return "hold"
+
+
+def _latest_feature_panel(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """One row per symbol: latest feature vector + dummy fwd_ret for CS helper."""
+    parts: list[pd.DataFrame] = []
+    for symbol, ohlcv in frames.items():
+        try:
+            feats = build_features(ohlcv)
+            if feats.empty:
+                continue
+            row = feats.iloc[[-1]].copy()
+            row["symbol"] = symbol
+            row["fwd_ret"] = 0.0  # unused for scoring ranks
+            row["label"] = 0
+            parts.append(row)
+        except (ValueError, KeyError) as exc:
+            log.debug("skip features symbol=%s: %s", symbol, exc)
+            continue
+    if not parts:
+        return pd.DataFrame()
+    panel = pd.concat(parts, axis=0)
+    # force a shared index date so groupby(level=0) is one cross-section
+    as_of = panel.index.max()
+    panel = panel.copy()
+    panel.index = pd.DatetimeIndex([as_of] * len(panel))
+    panel = add_cross_section_features(panel, relative_label=False)
+    return panel
 
 
 def score_universe(
@@ -98,45 +117,77 @@ def score_universe(
 ) -> ScoreResult:
     """Score each symbol's latest bar with ``model``.
 
-    Args:
-        model: Fitted :class:`SignalModel`.
-        frames: Map of symbol → OHLCV DataFrame (must include standard columns).
-        buy_threshold: Buy side cutoff.
-        sell_threshold: Sell side cutoff.
-
-    Returns:
-        :class:`ScoreResult` with ranked rows and any per-symbol errors.
-        Also supports iteration over ``rows`` for backward compatibility.
+    When the model expects CS features, ranks are computed across the universe
+    on the latest available bar set (per-symbol last date aligned loosely by
+    taking each series' last feature row into one cross-section).
     """
+    if model.booster is None:
+        raise RuntimeError("model is not fitted")
+
+    needs_cs = any(c in model.feature_names for c in CS_FEATURE_COLUMNS)
     rows: list[SignalRow] = []
     errors: list[str] = []
-    for symbol, ohlcv in frames.items():
+
+    if needs_cs:
+        panel = _latest_feature_panel(frames)
+        if panel.empty:
+            return ScoreResult(rows=[], errors=["no feature rows for any symbol"])
+        for col in model.feature_names:
+            if col not in panel.columns:
+                panel[col] = 0.5 if col.startswith("cs_") else 0.0
         try:
-            series = model.predict_proba(ohlcv)
-            if series.empty:
-                errors.append(f"{symbol}: empty features")
-                continue
-            proba = float(series.iloc[-1])
-            as_of = (
-                str(series.index[-1].date())
-                if hasattr(series.index[-1], "date")
-                else str(series.index[-1])
-            )
+            x = panel.loc[:, model.feature_names]
+            proba = np.asarray(model.booster.predict(x), dtype=float)
+        except (ValueError, KeyError) as exc:
+            log.error("panel score failed: %s", exc)
+            return ScoreResult(rows=[], errors=[f"panel: {exc}"])
+
+        for i, (_, prow) in enumerate(panel.iterrows()):
+            symbol = str(prow.get("symbol", ""))
+            p = float(proba[i])
+            as_of = str(pd.Timestamp(prow.name).date()) if hasattr(prow.name, "day") else str(prow.name)
+            # prefer feature index date from original — use panel index
             rows.append(
                 SignalRow(
                     symbol=symbol,
-                    proba=proba,
+                    proba=p,
                     side=side_from_proba(
-                        proba,
+                        p,
                         buy_threshold=buy_threshold,
                         sell_threshold=sell_threshold,
                     ),
                     as_of=as_of,
                 )
             )
-        except (RuntimeError, ValueError, KeyError, TypeError) as exc:
-            log.warning("score failed symbol=%s: %s", symbol, exc)
-            errors.append(f"{symbol}: {exc}")
+    else:
+        for symbol, ohlcv in frames.items():
+            try:
+                series = model.predict_proba(ohlcv)
+                if series.empty:
+                    errors.append(f"{symbol}: empty features")
+                    continue
+                proba = float(series.iloc[-1])
+                as_of = (
+                    str(series.index[-1].date())
+                    if hasattr(series.index[-1], "date")
+                    else str(series.index[-1])
+                )
+                rows.append(
+                    SignalRow(
+                        symbol=symbol,
+                        proba=proba,
+                        side=side_from_proba(
+                            proba,
+                            buy_threshold=buy_threshold,
+                            sell_threshold=sell_threshold,
+                        ),
+                        as_of=as_of,
+                    )
+                )
+            except (RuntimeError, ValueError, KeyError, TypeError) as exc:
+                log.warning("score failed symbol=%s: %s", symbol, exc)
+                errors.append(f"{symbol}: {exc}")
+
     rows.sort(key=lambda r: r.proba, reverse=True)
     log.debug("scored n=%s errors=%s", len(rows), len(errors))
     return ScoreResult(rows=rows, errors=errors)

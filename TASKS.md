@@ -34,7 +34,10 @@ moves quality toward 8.5+ without rebuilding v1.
 - [x] Leakage audit notes + structural checks
 - [x] Baselines: always-long + momentum (`ret_5>0`); edge reported
 - [ ] Optional: purged CV / embargo beyond expanding WF
-- [ ] Optional: improve features until eval edges consistently > 0
+- [x] Feature upgrade + relative labels + CS ranks (2026-07-20)
+- [x] Portfolio walk-forward **backtest** + promotion gate (`neotrade backtest`)
+- [ ] Re-check: keep `eval` / backtest gate healthy after data refreshes
+- [ ] Improve strategy until backtest gate PASSes consistently
 
 ### P2 — observability & errors
 - [x] Structured logging (`logging_config.py`; level/JSON/file env)
@@ -53,7 +56,7 @@ moves quality toward 8.5+ without rebuilding v1.
 - [x] Move alerts vs prior tick; JSONL log; min interval 5s
 - [x] Dashboard Quotes auto-refresh option
 - [x] Still **no** execute from monitor; RTH gate unchanged
-- [ ] Optional WebSocket stream when free tier allows
+- [x] Optional WebSocket stream (`monitor/stream.py`, `neotrade stream`, IEX)
 - [ ] Handle partial fills / order lifecycle in plan (v1 ignores working orders by design)
 
 ## Explicitly deferred
@@ -63,9 +66,8 @@ moves quality toward 8.5+ without rebuilding v1.
 - Institutional multi-account / OMS features  
 
 ## Status
-**v1 + P0–P4 core gaps closed** (WS/partial-fills still optional).  
-**Score:** see `QUALITY_SCORE.md` (floor 7.6).  
-**Next:** feature/label work for `eval` edges > 0, or optional WS.  
-**Ops:** `DAILY_TODO.md` · `docs/user-guide.md`.
+**v1 + full monitor path + portfolio backtest gate.** Score floor **7.6**.  
+**Next:** improve signals/plan until `neotrade backtest` gate PASSes; optional partial-fills.  
+**Ops:** weekly `eval` + `backtest` before trusting retrain.
 
 Last updated: 2026-07-20

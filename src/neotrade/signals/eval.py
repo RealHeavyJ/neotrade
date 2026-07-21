@@ -17,7 +17,12 @@ import numpy as np
 import pandas as pd
 
 from neotrade.config.load import project_root
-from neotrade.signals.features import FEATURE_COLUMNS, build_labeled_frame
+from neotrade.signals.features import (
+    MAX_LOOKBACK_BARS,
+    add_cross_section_features,
+    build_labeled_frame,
+    model_feature_names,
+)
 from neotrade.signals.model import DEFAULT_PARAMS
 
 
@@ -127,8 +132,13 @@ class EvalReport:
         }
 
 
-def build_panel(frames: dict[str, pd.DataFrame], *, horizon: int = 5) -> pd.DataFrame:
-    """Stack per-symbol labeled frames into one panel sorted by date."""
+def build_panel(
+    frames: dict[str, pd.DataFrame],
+    *,
+    horizon: int = 5,
+    relative_label: bool = True,
+) -> pd.DataFrame:
+    """Stack per-symbol labeled frames; add CS ranks and relative labels."""
     parts: list[pd.DataFrame] = []
     for symbol, ohlcv in frames.items():
         try:
@@ -140,27 +150,20 @@ def build_panel(frames: dict[str, pd.DataFrame], *, horizon: int = 5) -> pd.Data
         parts.append(labeled)
     if not parts:
         raise ValueError("no labeled rows for evaluation")
-    return pd.concat(parts, axis=0).sort_index()
+    panel = pd.concat(parts, axis=0).sort_index()
+    return add_cross_section_features(panel, relative_label=relative_label)
 
 
 def check_leakage(*, horizon: int = 5) -> LeakageReport:
-    """Document and verify label/feature temporal separation assumptions.
-
-    Features use only past windows (returns, rolling stats up to 50 bars).
-    Labels use ``Close.shift(-horizon)`` — future relative to the feature row.
-    Training must not include rows whose label window overlaps the test set
-    without purging (walk-forward below trains only on dates strictly before
-    the test start).
-    """
+    """Document and verify label/feature temporal separation assumptions."""
     notes = [
-        "Features: lagging returns/RSI/SMA/Bollinger/volume — no lead operators.",
-        f"Label: fwd close return over {horizon} bars (shift -{horizon}); binary > 0.",
-        "Walk-forward trains on index dates < test_start only (no same-day train/test).",
-        "Known residual: cross-sectional same-day info across symbols is allowed "
-        "(panel trains all names together per date) — acceptable for this v1.",
+        "Features: lagging returns/RSI/SMA/MACD/Bollinger/volume/ATR — no lead ops.",
+        "CS ranks use same-day lagging features only (not future returns).",
+        f"Label default: relative — fwd_ret > cross-sectional median over {horizon} bars.",
+        "Absolute baseline (always-long) uses label_absolute when present.",
+        "Walk-forward trains on index dates < test_start only.",
     ]
-    # Structural assertion on feature builder source contract
-    max_lookback = 50  # sma_50
+    max_lookback = MAX_LOOKBACK_BARS
     ok = horizon >= 1 and max_lookback >= 1
     if horizon < 1:
         notes.append("FAIL: horizon < 1")
@@ -190,18 +193,32 @@ def _accuracy(y: np.ndarray, pred: np.ndarray) -> float:
 
 
 def baseline_always_long(y: np.ndarray) -> float:
-    """Accuracy of always predicting up (label 1)."""
+    """Accuracy of always predicting class 1 (long / outperform)."""
     if len(y) == 0:
         return float("nan")
     return float((y == 1).mean())
 
 
 def baseline_momentum(df: pd.DataFrame) -> float:
-    """Predict up when ret_5 > 0 (simple momentum baseline)."""
-    if df.empty or "ret_5" not in df.columns:
+    """Momentum baseline aligned to label definition.
+
+    Relative labels: predict outperform when ``cs_rank_ret_5`` > 0.5 (or
+    ``ret_5`` above same-day median). Absolute: ``ret_5 > 0``.
+    """
+    if df.empty or "label" not in df.columns:
         return float("nan")
-    pred = (df["ret_5"].to_numpy() > 0).astype(int)
     y = df["label"].astype(int).to_numpy()
+    if "cs_rank_ret_5" in df.columns:
+        pred = (df["cs_rank_ret_5"].to_numpy() > 0.5).astype(int)
+    elif "ret_5" in df.columns:
+        # fall back: ret_5 > cross-section median when multiple rows/date
+        if df.index.duplicated().any() or df.index.nunique() < len(df):
+            med = df.groupby(level=0)["ret_5"].transform("median")
+            pred = (df["ret_5"] > med).astype(int).to_numpy()
+        else:
+            pred = (df["ret_5"].to_numpy() > 0).astype(int)
+    else:
+        return float("nan")
     return _accuracy(y, pred)
 
 
@@ -262,14 +279,15 @@ def walk_forward_eval(
     horizon: int = 5,
     n_folds: int = 4,
     min_train_frac: float = 0.4,
-    num_boost_round: int = 80,
+    num_boost_round: int = 100,
     params: dict[str, Any] | None = None,
     feature_names: list[str] | None = None,
+    relative_label: bool = True,
 ) -> EvalReport:
     """Expanding-window walk-forward evaluation with baselines and calibration.
 
-    Timeline of unique dates is split so each fold tests a later contiguous
-    block while training on all earlier dates only.
+    Default ``relative_label=True`` matches production ranking objective
+    (beat same-day median forward return).
 
     Args:
         frames: symbol → OHLCV.
@@ -279,6 +297,7 @@ def walk_forward_eval(
         num_boost_round: Boosting rounds per fold (no early stop for stability).
         params: LightGBM params.
         feature_names: Feature columns.
+        relative_label: Use relative outperformance labels.
 
     Returns:
         :class:`EvalReport` with fold metrics and aggregate edges.
@@ -288,10 +307,13 @@ def walk_forward_eval(
     if not 0.2 <= min_train_frac <= 0.8:
         raise ValueError("min_train_frac must be in [0.2, 0.8]")
 
-    feature_names = list(feature_names or FEATURE_COLUMNS)
+    feature_names = list(feature_names or model_feature_names(include_cs=True))
     params = dict(params or DEFAULT_PARAMS)
     leakage = check_leakage(horizon=horizon)
-    panel = build_panel(frames, horizon=horizon)
+    panel = build_panel(frames, horizon=horizon, relative_label=relative_label)
+    for col in feature_names:
+        if col not in panel.columns:
+            panel[col] = 0.5 if col.startswith("cs_") else 0.0
     dates = panel.index.unique().sort_values()
     n_dates = len(dates)
     if n_dates < n_folds + 5:
@@ -413,8 +435,9 @@ def run_signal_eval(
     *,
     horizon: int = 5,
     n_folds: int = 4,
-    num_boost_round: int = 80,
+    num_boost_round: int = 100,
     save: bool = True,
+    relative_label: bool = True,
 ) -> EvalReport:
     """Convenience: walk-forward eval + optional disk save."""
     report = walk_forward_eval(
@@ -422,6 +445,7 @@ def run_signal_eval(
         horizon=horizon,
         n_folds=n_folds,
         num_boost_round=num_boost_round,
+        relative_label=relative_label,
     )
     if save:
         save_eval_report(report)

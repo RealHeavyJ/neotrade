@@ -29,8 +29,10 @@ from neotrade.learning.log import append_retrain_event
 from neotrade.learning.policy import policy_blurb, record_advice_run
 from neotrade.logging_config import get_logger, setup_logging
 from neotrade.monitor import MonitorConfig, QuoteMonitor, default_monitor_config
+from neotrade.monitor.stream import run_stream_cli
 from neotrade.perf.bench import run_full_bench
 from neotrade.signals import SignalModel, score_universe
+from neotrade.signals.backtest import BacktestConfig, run_portfolio_backtest, save_backtest_report
 from neotrade.signals.eval import run_signal_eval
 
 DEFAULT_MODEL_PATH = Path("models/signal.txt")
@@ -91,7 +93,8 @@ def _cmd_train(args: argparse.Namespace) -> int:
     if bars.errors:
         for err in bars.errors:
             print(f"warn: {err}", file=sys.stderr)
-    model = SignalModel(horizon=args.horizon)
+    label_mode = getattr(args, "label_mode", None) or "relative"
+    model = SignalModel(horizon=args.horizon, label_mode=label_mode, include_cs=True)
     result = model.fit(
         bars.frames,
         valid_fraction=args.valid_fraction,
@@ -99,7 +102,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
     )
     out = _resolve_model_path(args.output)
     saved = model.save(out)
-    print(f"trained: n_train={result.n_train} n_valid={result.n_valid}")
+    print(f"trained: n_train={result.n_train} n_valid={result.n_valid} label_mode={label_mode}")
     for key, val in result.metrics.items():
         print(f"  {key}={val:.4f}" if isinstance(val, float) else f"  {key}={val}")
     print(f"saved: {saved}")
@@ -135,6 +138,7 @@ def _cmd_eval(args: argparse.Namespace) -> int:
             n_folds=args.folds,
             num_boost_round=args.rounds,
             save=not args.no_save,
+            relative_label=not args.absolute_label,
         )
     except (ValueError, RuntimeError) as exc:
         log.error("eval failed: %s", exc)
@@ -154,6 +158,48 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     if report.edge_vs_always_long <= 0 and report.edge_vs_momentum <= 0:
         return 2
     return 0
+
+
+def _cmd_backtest(args: argparse.Namespace) -> int:
+    """Walk-forward portfolio backtest + promotion gate (no live orders)."""
+    cfg = load_tickers_config(args.config)
+    root = project_root()
+    risk = default_risk_limits(cfg)
+    bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
+    if bars.errors:
+        for err in bars.errors:
+            print(f"warn: {err}", file=sys.stderr)
+    bt = BacktestConfig(
+        initial_cash=float(args.cash),
+        horizon=int(args.horizon),
+        train_days=int(args.train_days),
+        retrain_every=int(args.retrain_every),
+        num_boost_round=int(args.rounds),
+        cost_bps=float(args.cost_bps),
+        buy_threshold=float(args.buy_threshold) if args.buy_threshold is not None else risk.buy_threshold,
+        sell_threshold=float(args.sell_threshold) if args.sell_threshold is not None else risk.sell_threshold,
+        fill=str(args.fill),
+        momentum_top_n=int(args.momentum_top_n),
+    )
+    try:
+        report = run_portfolio_backtest(bars.frames, cfg, risk=risk, bt=bt)
+    except (ValueError, RuntimeError) as exc:
+        log.error("backtest failed: %s", exc)
+        print(f"backtest failed: {exc}", file=sys.stderr)
+        return 1
+    for line in report.summary_lines():
+        print(line)
+    if not args.no_save:
+        path = save_backtest_report(report)
+        print(f"saved: {path}")
+    log.info(
+        "backtest done gate=%s signal_ret=%.4f eq_ret=%.4f mom_ret=%.4f",
+        report.gate.pass_,
+        report.signal.total_return,
+        report.equal_weight.total_return,
+        report.momentum.total_return,
+    )
+    return 0 if report.gate.pass_ else 2
 
 
 def _cmd_signals(args: argparse.Namespace) -> int:
@@ -511,6 +557,33 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_stream(args: argparse.Namespace) -> int:
+    """Alpaca MD WebSocket stream (IEX); monitor only — never executes."""
+    cfg = load_tickers_config(args.config)
+    symbols = cfg.symbols()
+    if args.symbols:
+        symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+    seconds = None if args.until_interrupt else float(args.seconds)
+    try:
+        state = run_stream_cli(
+            symbols,
+            seconds=seconds,
+            max_messages=args.max_messages,
+            verbose=args.verbose,
+            feed=args.feed,
+        )
+    except KeyboardInterrupt:
+        print("stream stopped", flush=True)
+        return 0
+    except (RuntimeError, OSError) as exc:
+        log.error("stream failed: %s", exc)
+        print(f"stream failed: {exc}", file=sys.stderr)
+        return 1
+    if state.last_error and not state.quotes:
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the top-level argparse tree for the ``neotrade`` console script."""
     parser = argparse.ArgumentParser(prog="neotrade", description="Local paper-trading decision support")
@@ -568,12 +641,46 @@ def build_parser() -> argparse.ArgumentParser:
     p_mon.add_argument("--no-log", action="store_true", help="disable JSONL log")
     p_mon.set_defaults(func=_cmd_monitor)
 
+    p_stream = sub.add_parser(
+        "stream",
+        help="Alpaca WebSocket quotes/trades (IEX; watch only, never executes)",
+    )
+    p_stream.add_argument("--config", type=str, default=None)
+    p_stream.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help="comma-separated symbols (default: full universe)",
+    )
+    p_stream.add_argument(
+        "--seconds",
+        type=float,
+        default=30.0,
+        help="run duration in seconds (default 30)",
+    )
+    p_stream.add_argument(
+        "--until-interrupt",
+        action="store_true",
+        help="run until Ctrl+C (ignores --seconds)",
+    )
+    p_stream.add_argument("--max-messages", type=int, default=None, help="stop after N data msgs")
+    p_stream.add_argument("--feed", type=str, default=None, help="iex (default) or sip")
+    p_stream.add_argument("--verbose", "-v", action="store_true", help="print each tick")
+    p_stream.set_defaults(func=_cmd_stream)
+
     p_train = sub.add_parser("train", help="train LightGBM signal model on cached OHLCV")
     p_train.add_argument("--config", type=str, default=None)
     p_train.add_argument("--output", type=str, default=str(DEFAULT_MODEL_PATH))
     p_train.add_argument("--horizon", type=int, default=5, help="forward-return label horizon (days)")
-    p_train.add_argument("--rounds", type=int, default=120)
+    p_train.add_argument("--rounds", type=int, default=160)
     p_train.add_argument("--valid-fraction", type=float, default=0.2)
+    p_train.add_argument(
+        "--label-mode",
+        type=str,
+        default="relative",
+        choices=["relative", "absolute"],
+        help="relative=beat CS median fwd ret (default); absolute=fwd_ret>0",
+    )
     p_train.set_defaults(func=_cmd_train)
 
     p_eval = sub.add_parser(
@@ -583,9 +690,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument("--config", type=str, default=None)
     p_eval.add_argument("--horizon", type=int, default=5)
     p_eval.add_argument("--folds", type=int, default=4)
-    p_eval.add_argument("--rounds", type=int, default=80)
+    p_eval.add_argument("--rounds", type=int, default=100)
+    p_eval.add_argument(
+        "--absolute-label",
+        action="store_true",
+        help="eval with absolute up/down labels instead of relative",
+    )
     p_eval.add_argument("--no-save", action="store_true", help="skip writing eval_latest.json")
     p_eval.set_defaults(func=_cmd_eval)
+
+    p_bt = sub.add_parser(
+        "backtest",
+        help="walk-forward portfolio BT vs eq-weight/momentum (promotion gate)",
+    )
+    p_bt.add_argument("--config", type=str, default=None)
+    p_bt.add_argument("--cash", type=float, default=100_000.0)
+    p_bt.add_argument("--horizon", type=int, default=5)
+    p_bt.add_argument("--train-days", type=int, default=120)
+    p_bt.add_argument("--retrain-every", type=int, default=21)
+    p_bt.add_argument("--rounds", type=int, default=80)
+    p_bt.add_argument("--cost-bps", type=float, default=5.0, help="one-way cost in bps per fill")
+    p_bt.add_argument("--buy-threshold", type=float, default=None)
+    p_bt.add_argument("--sell-threshold", type=float, default=None)
+    p_bt.add_argument("--fill", type=str, default="next_open", choices=["next_open", "next_close"])
+    p_bt.add_argument("--momentum-top-n", type=int, default=5)
+    p_bt.add_argument("--no-save", action="store_true")
+    p_bt.set_defaults(func=_cmd_backtest)
 
     p_sig = sub.add_parser("signals", help="score universe with trained model")
     p_sig.add_argument("--config", type=str, default=None)

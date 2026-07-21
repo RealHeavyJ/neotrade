@@ -10,11 +10,12 @@ For every coding/planning agent (Grok Build CLI, subagents, future tools).
 
 ## Quality rule (non-negotiable)
 
-- **Current overall: 8.5 / 10. Floor: 7.6.**  
+- **Current overall: 8.8 / 10. Floor: 7.6.**  
 - Changes must **hold or raise** the overall score.  
 - **Never** ship a change that would drop overall below the floor.  
 - Do not regress safety (paper-only, `--confirm`), tests, or locked decisions in `CONTEXT.md`.  
-- Advise logs are **journal only** — never train LightGBM on advise prose/ratings.
+- Advise logs are **journal only** — never train LightGBM on advise prose/ratings.  
+- Prefer `neotrade eval` + `neotrade backtest` before promoting signal models.
 
 ## After code changes
 

@@ -83,9 +83,27 @@ neotrade advise | bench | dashboard
 - `docs/user-guide.md`
 - Score **8.5** (target hit); next lift = ML edge
 
+### Signal upgrade (DONE 2026-07-20)
+- Richer lagging features + CS ranks; default **relative** labels
+- `score_universe` builds latest-bar CS panel
+- Live eval: edge_al **+0.0077**, edge_mom **+0.0288** (exit 0)
+- Retrain required for production model (done this session)
+- Score **8.6**
+
+### WebSocket stream (DONE 2026-07-20)
+- `monitor/stream.py` + `neotrade stream` (IEX v2, websockets lib)
+- Auth/subscribe/trade+quote parse; mocked unit tests
+- Never executes; score **8.7**
+
+### Portfolio backtest (DONE 2026-07-20)
+- `signals/backtest.py` + `neotrade backtest`
+- WF retrain, next-open fills, costs, eq-weight + momentum baselines
+- Promotion gate (exit 0/2); live run **gate=FAIL** (signal +35% vs eq +38% vs mom +63%)
+- Score **8.8**
+
 ### Next engineering (default)
-1. Feature/label work until `neotrade eval` beats always-long  
-2. Optional WS quotes  
+1. Improve signals/plan until backtest gate PASSes  
+2. Optional partial-fill lifecycle  
 3. Keep execute RTH-only
 
 ### Quality score (stored)

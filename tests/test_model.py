@@ -7,7 +7,7 @@ from neotrade.signals.model import SignalModel
 from neotrade.signals.score import score_universe, side_from_proba
 
 
-def _synth(n: int = 150, seed: int = 1) -> pd.DataFrame:
+def _synth(n: int = 180, seed: int = 1) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range("2023-01-03", periods=n)
     # mild momentum so model can fit something

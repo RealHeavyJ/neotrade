@@ -96,7 +96,7 @@ def page_quotes() -> None:
     st.subheader("Live quotes (Alpaca market data)")
     st.caption(
         "REST latest trade/quote · IEX free/paper · monitor only (execute still RTH-gated). "
-        "CLI: `neotrade monitor --interval 15`"
+        "CLI: `neotrade monitor --interval 15` · live WS: `neotrade stream --seconds 60 -v`"
     )
     session = get_session_status()
     st.caption(session.summary_line())

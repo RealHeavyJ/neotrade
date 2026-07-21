@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **8.5 / 10** |
+| **Overall** | **8.8 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **9.0** (ML edge + optional WS) |
-| **Rated** | 2026-07-20 (P3 learning policy) |
-| **Rater** | Senior review + P0–P4 track complete |
-| **Tests at rating** | 71+; policy tests added |
+| **Target (next milestone)** | **9.0** (BT gate PASS + stronger edge) |
+| **Rated** | 2026-07-20 (portfolio backtest) |
+| **Rater** | Senior review + portfolio BT |
+| **Tests at rating** | 89 passed |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | 8.0 | Clear packages; advise ≠ train enforced in policy |
+| Architecture / modularity | 8.1 | BT reuses plan/risk path |
 | Safety / ops | **8.8** | Paper-only, `--confirm`, sleeves, RTH execute gate |
-| Correctness / tests | **8.1** | + learning policy unit tests |
+| Correctness / tests | **8.3** | + portfolio BT unit tests |
 | Code quality | **7.7** | Narrower excepts; less silent swallow |
-| Docs / self-describing APIs | **8.0** | user-guide + advise policy documented |
-| ML rigor | **6.8** | WF eval present; edge still weak vs always-long |
-| Observability | **7.6** | Logging + rated advice journal + smoke |
-| Scalability / realtime | **6.8** | REST poller; WS still open |
+| Docs / self-describing APIs | **8.1** | backtest + promotion gate documented |
+| ML rigor | **7.7** | WF eval + **portfolio BT gate** (currently FAIL vs baselines — honest) |
+| Observability | **7.7** | + backtest_latest.json |
+| Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
 
-**Weighted overall ≈ 8.5** — product track complete; **ML edge** is the main path above 8.5.
+**Weighted overall ≈ 8.8** — promotion tooling in place; strategy still trails eq/mom on recent window.
 
 ---
 
@@ -64,7 +64,7 @@ See `TASKS.md` → “Plan: close senior-review gaps”:
 | P1 | ~~Walk-forward / calibration / baselines~~ done | ML rigor, correctness |
 | P2 | ~~Structured logging; narrower excepts~~ done | Observability, code quality |
 | P3 | ~~Advise learning policy + dashboard parity~~ done | Product completeness / docs |
-| P4 | WS quotes; order lifecycle | Scalability / realtime |
+| P4 | ~~WS quotes~~ done; order lifecycle still open | Scalability / realtime |
 
 Cosmetic refactors that do not close a gap should still **not** lower any dimension.
 
@@ -80,6 +80,9 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-20 | 8.2 | +0.2 | P1 walk-forward eval, baselines, calibration, leakage |
 | 2026-07-20 | 8.4 | +0.2 | P2 structured logging, narrower excepts, smoke script |
 | 2026-07-20 | 8.5 | +0.1 | P3 advise policy, dashboard rating parity, user-guide |
+| 2026-07-20 | 8.6 | +0.1 | Relative labels + CS features; eval edge_al > 0 |
+| 2026-07-20 | 8.7 | +0.1 | Alpaca IEX WebSocket stream (monitor only) |
+| 2026-07-20 | 8.8 | +0.1 | Portfolio WF backtest + promotion gate (`neotrade backtest`) |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

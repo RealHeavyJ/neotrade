@@ -47,7 +47,7 @@ Or: `neotrade dashboard` → http://localhost:8501
 2. You may **rate** advice 1–5 (CLI `--rating` or Dashboard → Advise → Save rating).
 3. Ratings help **you** (and future prompt work) — they do **not** retrain LightGBM.
 4. To update the signal model: `neotrade fetch` then `neotrade train` only.
-5. Check quality with `neotrade eval` (walk-forward vs baselines).
+5. Check quality with `neotrade eval` (classification) and `neotrade backtest` (portfolio P&amp;L gate).
 
 ```bash
 neotrade advise --mock-llm --rating 4 --notes "clear and useful"
@@ -56,9 +56,11 @@ neotrade advise --mock-llm --rating 4 --notes "clear and useful"
 ## Weekly
 
 ```bash
-neotrade fetch --force && neotrade train && neotrade eval
+neotrade fetch --force && neotrade train && neotrade eval && neotrade backtest
 neotrade bench && pytest -q
 ```
+
+Promote a new model only if **eval** looks sane and **backtest** prints `gate=PASS`.
 
 ## Safety
 

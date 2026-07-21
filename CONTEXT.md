@@ -10,7 +10,8 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Item | Choice |
 |------|--------|
 | Name / repo | neotrade · `~/dev/neotrade` |
-| Signals | LightGBM → `models/signal.txt` |
+| Signals | LightGBM relative labels + CS ranks → `models/signal.txt` |
+| Model gate | `neotrade eval` + `neotrade backtest` before trusting retrain |
 | Agents | LangGraph · Ollama `llama3.2:3b` |
 | UI | Streamlit `neotrade dashboard` |
 | Broker | Alpaca **paper** only |
@@ -18,10 +19,10 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
 | Risk | 8% max name · 68/32 sleeves · execute needs `--confirm` |
 | Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
-| Monitoring | `neotrade monitor` poller (min 5s); quotes anytime free MD allows; execute RTH-only |
+| Monitoring | REST `monitor` + WS `stream` (IEX); quotes anytime free MD allows; execute RTH-only |
 
 ## Quality score (agents)
-- Canonical: **`QUALITY_SCORE.md`** — overall **8.5/10**, floor **7.6**, next target **9.0**
+- Canonical: **`QUALITY_SCORE.md`** — overall **8.8/10**, floor **7.6**, next target **9.0**
 - Policy: code changes must **hold or raise** score; never regress below floor
 - Rules for all agents: **`AGENTS.md`**
 - Gap backlog: ML edge (`eval`), optional WS — `TASKS.md`

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from neotrade.signals.features import FEATURE_COLUMNS, build_features
+from neotrade.signals.features import ALL_MODEL_FEATURES, FEATURE_COLUMNS, build_features
 from neotrade.signals.score import ScoreResult, SignalRow, score_universe
 
 if TYPE_CHECKING:
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from neotrade.signals.model import SignalModel
 
 __all__ = [
+    "ALL_MODEL_FEATURES",
     "FEATURE_COLUMNS",
     "EvalReport",
     "ScoreResult",

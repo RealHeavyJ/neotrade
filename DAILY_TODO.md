@@ -86,6 +86,7 @@ Market is open and book is deployed. After morning checklist is done:
 - [ ] `neotrade fetch --force` — full bar refresh  
 - [ ] `neotrade train` — refresh `models/signal.txt`  
 - [ ] `neotrade eval` — walk-forward vs baselines; note edges in status log  
+- [ ] `neotrade backtest` — portfolio gate (PASS before trusting a new model)  
 - [ ] Spot-check: `neotrade signals` — buy list not nonsense vs your thesis  
 - [ ] `neotrade bench` — Ollama still interactive (~few seconds on 3b); note RSS if huge
 
@@ -118,7 +119,8 @@ These stay in **`TASKS.md`** until built — then ops shrinks:
 |-------------------|-----------------|
 | ~~P0 market-hours gate~~ | ~~Done — execute blocked off RTH~~ |
 | Unattended scheduler | Run daily/weekly yourself |
-| ~~REST quote monitor (P4)~~ | Optional: `neotrade monitor -v` instead of manual refresh |
+| ~~REST quote monitor (P4)~~ | Optional: `neotrade monitor -v` |
+| ~~WS stream~~ | Optional: `neotrade stream --seconds 60 -v` (best in RTH) |
 | Unattended 24/7 driver | Still manual daily/weekly |
 | Advise learning policy | Manually judge advise; don’t feed it to train |
 | 24/7 agent driver | No overnight automation — laptop + you |
@@ -173,7 +175,7 @@ neotrade paper-plan
 
 ```bash
 cd ~/dev/neotrade && source .venv/bin/activate
-neotrade fetch --force && neotrade train && neotrade eval
+neotrade fetch --force && neotrade train && neotrade eval && neotrade backtest
 neotrade signals && neotrade account && neotrade paper-plan
 neotrade bench && pytest -q
 ```

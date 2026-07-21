@@ -46,32 +46,55 @@ Cache files: `data/cache/{SYMBOL}_{interval}_{period}.csv` with columns
 
 ## Signals (LightGBM)
 
-Features (per bar): returns, volatility, RSI, SMA ratios, Bollinger %, volume z-score.
+Features (per bar): multi-horizon returns, vol/ATR, RSI, SMA/EMA/MACD, Bollinger,
+volume z, gap, momentum/vol, trend strength, plus **cross-sectional ranks**.
 
-Label: binary — forward close return over `horizon` days > 0 (default 5).
+Label default: **relative** — `fwd_ret` > same-day cross-sectional median
+(stock-picking). Use `--label-mode absolute` for raw up/down.
 
 ```bash
-neotrade train                 # models/signal.txt (+ .meta.json)
-neotrade signals               # proba + buy/hold/sell per ticker
-neotrade train --horizon 3 --rounds 80
+neotrade train                 # relative + CS features → models/signal.txt
+neotrade train --label-mode absolute
+neotrade signals               # proba + buy/hold/sell (CS ranks on universe)
+neotrade train --horizon 5 --rounds 160
 ```
 
 Thresholds: buy ≥ 0.55, sell ≤ 0.45 (override on `signals`).
 
-`models/` is gitignored.
+`models/` is gitignored. Re-train after feature upgrades.
 
 ### Signal evaluation (P1 rigor)
 
 ```bash
-neotrade eval                 # walk-forward vs always-long + momentum
-neotrade eval --folds 4 --horizon 5 --rounds 80
+neotrade eval                 # walk-forward vs always-long + momentum (relative labels)
+neotrade eval --absolute-label
+neotrade eval --folds 4 --horizon 5 --rounds 100
 ```
 
 - Expanding-window folds; train dates strictly before each test block.
-- Baselines: always-long, momentum (`ret_5 > 0`).
+- Baselines: always-predict-1; momentum via `cs_rank_ret_5` (relative mode).
 - Calibration bins + Brier; leakage notes documented.
 - Writes `data/learning/eval_latest.json` (not the production model).
 - Exit code `2` if model fails to beat **both** baselines (honest signal).
+
+### Portfolio backtest (model promotion)
+
+```bash
+neotrade backtest
+neotrade backtest --cost-bps 5 --retrain-every 21 --train-days 120
+```
+
+Walk-forward portfolio simulation using **production** `build_trade_plan` risk rules:
+
+- Decision at close *t*, fill at **next open** (or next close)
+- One-way costs (`--cost-bps`)
+- Retrain LightGBM every N days on past data only
+- Baselines: equal-weight buy-hold, momentum top-N rebalance
+- Metrics: total return, CAGR, maxDD, Sharpe, turnover
+- **Promotion gate** (exit 0 pass / 2 fail): beat ≥1 baseline on return, maxDD ≤ 35%, Sharpe ≥ 0
+- Writes `data/learning/backtest_latest.json`
+
+Use before promoting a new `models/signal.txt`. Does not place broker orders.
 
 ## Alpaca paper
 
@@ -115,6 +138,20 @@ neotrade monitor --max-ticks 10 --move-pct 1.5
 - Optional JSONL: `data/learning/monitor.jsonl` (disable with `--no-log`).
 - **Never executes** orders. Session banner shows RTH vs blocked.
 - Env: `NEOTRADE_MONITOR_INTERVAL`, `NEOTRADE_MONITOR_MOVE_PCT`, `NEOTRADE_MONITOR_LOG`.
+
+### WebSocket stream (optional realtime)
+
+```bash
+neotrade stream --seconds 30 -v          # IEX trades/quotes, then summary
+neotrade stream --symbols NVDA,ARM --seconds 60
+neotrade stream --until-interrupt -v     # Ctrl+C to stop
+```
+
+- URL: `wss://stream.data.alpaca.markets/v2/iex` (override host via `ALPACA_DATA_WS`).
+- Feed default `iex` (free/paper). `sip` needs a paid plan.
+- **Monitor only** — never places orders; RTH execute gate unchanged.
+- Outside RTH you may connect but receive few/no ticks.
+- Dep: `websockets` (in project dependencies).
 
 ## Agents (LangGraph + Ollama) — fully local
 

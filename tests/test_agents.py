@@ -12,7 +12,7 @@ from neotrade.config.models import RiskSettings, Ticker, TickersConfig
 from neotrade.signals.score import ScoreResult, SignalRow
 
 
-def _synth_ohlcv(n: int = 120, seed: int = 0) -> pd.DataFrame:
+def _synth_ohlcv(n: int = 150, seed: int = 0) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     idx = pd.bdate_range("2024-01-02", periods=n)
     rets = rng.normal(0.0005, 0.01, size=n)
