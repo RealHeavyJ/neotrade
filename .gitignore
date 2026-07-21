@@ -7,7 +7,7 @@ __pycache__/
 .env
 models/
 !models/.gitkeep
-data/
+/data/
 *.pyc
 .mypy_cache/
 dist/
