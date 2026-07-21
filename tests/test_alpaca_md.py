@@ -1,9 +1,54 @@
-from unittest.mock import MagicMock
+import inspect
+import ssl
+from unittest.mock import MagicMock, patch
 
-
-from neotrade.data.alpaca_md import AlpacaMarketDataClient
-from neotrade.data.quotes import fetch_universe_quotes
 from neotrade.config.models import Ticker, TickersConfig
+from neotrade.data.alpaca_md import AlpacaMarketDataClient, _ssl_context
+from neotrade.data.quotes import fetch_universe_quotes
+
+
+def test_ssl_context_uses_certifi_when_available():
+    """Regression: macOS python.org builds need certifi CA bundle."""
+    ctx = _ssl_context()
+    assert isinstance(ctx, ssl.SSLContext)
+    # source must keep certifi path (CI restore once dropped this)
+    src = inspect.getsource(AlpacaMarketDataClient._request)
+    assert "context=" in src
+    assert "_ssl_context" in src
+    import neotrade.data.alpaca_md as mod
+
+    mod_src = inspect.getsource(mod)
+    assert "certifi" in mod_src
+
+
+def test_request_passes_ssl_context_to_urlopen():
+    """Unit guard: urlopen must receive SSL context (not bare default)."""
+    client = AlpacaMarketDataClient.__new__(AlpacaMarketDataClient)
+    client.data_url = "https://data.alpaca.markets"
+    client.feed = "iex"
+    client.credentials = MagicMock()
+    client.credentials.headers.return_value = {
+        "APCA-API-KEY-ID": "x",
+        "APCA-API-SECRET-KEY": "y",
+    }
+
+    class FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    with patch("neotrade.data.alpaca_md.urllib.request.urlopen", return_value=FakeResp()) as uo:
+        out = client._request("/v2/stocks/trades/latest", {"symbols": "NVDA"})
+    assert out == {"ok": True}
+    assert uo.called
+    kwargs = uo.call_args.kwargs
+    assert "context" in kwargs
+    assert isinstance(kwargs["context"], ssl.SSLContext)
 
 
 def test_parse_latest_trades_via_request():

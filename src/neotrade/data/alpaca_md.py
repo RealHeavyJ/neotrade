@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 import pandas as pd
 
@@ -16,6 +18,28 @@ from neotrade.broker.credentials import AlpacaCredentials, load_alpaca_credentia
 
 DEFAULT_DATA_URL = "https://data.alpaca.markets"
 OHLCV_COLUMNS = ["Open", "High", "Low", "Close", "Volume"]
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """Prefer certifi CA bundle (fixes macOS python.org CERTIFICATE_VERIFY_FAILED)."""
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def data_base_url() -> str:
+    """Alpaca market-data REST host (no trailing ``/v2``)."""
+    base = (
+        os.environ.get("ALPACA_DATA_URL")
+        or os.environ.get("APCA_API_DATA_URL")
+        or DEFAULT_DATA_URL
+    ).strip().rstrip("/")
+    if base.endswith("/v2"):
+        base = base[: -len("/v2")]
+    return base
 
 
 def data_feed() -> str:
@@ -45,6 +69,14 @@ class LatestQuote:
     ask_size: float | None = None
     ts: str = ""
 
+    @property
+    def mid(self) -> float | None:
+        if self.bid is not None and self.ask is not None and self.bid > 0 and self.ask > 0:
+            return (self.bid + self.ask) / 2.0
+        if self.ask is not None:
+            return self.ask
+        return self.bid
+
 
 def _f(val: Any) -> float | None:
     if val is None or val == "":
@@ -66,16 +98,25 @@ class AlpacaMarketDataClient:
         feed: str | None = None,
     ) -> None:
         self.credentials = credentials or load_alpaca_credentials(require_paper=True)
-        self.data_url = (data_url or os.environ.get("ALPACA_DATA_URL") or DEFAULT_DATA_URL).rstrip("/")
+        self.data_url = (data_url or data_base_url()).rstrip("/")
+        if self.data_url.endswith("/v2"):
+            self.data_url = self.data_url[: -len("/v2")]
         self.feed = (feed or data_feed()).lower()
 
     def _request(self, path: str, query: dict[str, Any] | None = None) -> dict[str, Any]:
         query_str = f"?{urlencode(query)}" if query else ""
         url = f"{self.data_url}{path}{query_str}"
-        req = Request(url, headers=self.credentials.headers(), method="GET")
-        with urlopen(req, timeout=20) as res:  # nosec: runtime URL fixed to Alpaca host/env
-            payload = res.read().decode("utf-8")
-        data = json.loads(payload)
+        req = urllib.request.Request(url, headers=self.credentials.headers(), method="GET")
+        try:
+            # context= is required on macOS python.org builds (certifi CA bundle)
+            with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as res:
+                payload = res.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Alpaca data API {exc.code}: {body}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"Alpaca data network/SSL error: {exc.reason}") from exc
+        data = json.loads(payload) if payload else {}
         if not isinstance(data, dict):
             raise RuntimeError("unexpected Alpaca market-data response")
         return data
