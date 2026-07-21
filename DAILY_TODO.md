@@ -148,7 +148,7 @@ These stay in **`TASKS.md`** until built — then ops shrinks:
 |------|--------|------|-----|-------------|--------|
 | 2026-07-19 | 100000 | 100000 | 0 | 8 accepted | Weekend; waits for open |
 | 2026-07-20 AM | ~99954 | ~20208 | **10** | **0** | Fills OK; daily checklist completed by user |
-| 2026-07-20 EOD | | | | | *(fill after close glance)* |
+| 2026-07-20 EOD | 100,297.42 | 20,207.56 | 10 | 0 | Day 1 filled all advised |
 | | | | | | |
 
 ---
