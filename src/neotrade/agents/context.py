@@ -11,8 +11,11 @@ from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.config.models import TickersConfig
 from neotrade.data import load_universe_ohlcv, prices_for_plan
+from neotrade.logging_config import get_logger
 from neotrade.signals import SignalModel, score_universe
 from neotrade.signals.score import SignalRow
+
+log = get_logger("agents.context")
 
 
 @dataclass
@@ -120,5 +123,6 @@ def gather_market_context(
         )
         ctx.plan_lines = plan.summary_lines()
     except (RuntimeError, AlpacaAPIError, OSError, FileNotFoundError) as exc:
+        log.warning("account/plan unavailable: %s", exc)
         ctx.notes.append(f"account/plan unavailable: {exc}")
     return ctx

@@ -34,7 +34,7 @@ def _ssl_context() -> ssl.SSLContext:
         import certifi
 
         return ssl.create_default_context(cafile=certifi.where())
-    except Exception:  # noqa: BLE001
+    except ImportError:
         return ssl.create_default_context()
 
 

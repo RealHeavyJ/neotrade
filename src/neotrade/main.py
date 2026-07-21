@@ -25,12 +25,16 @@ from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import default_config_path, load_tickers_config
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.data import fetch_universe_quotes, load_universe_ohlcv, prices_for_plan
-from neotrade.learning.log import append_advice_feedback, append_retrain_event
+from neotrade.learning.log import append_retrain_event
+from neotrade.learning.policy import policy_blurb, record_advice_run
+from neotrade.logging_config import get_logger, setup_logging
 from neotrade.monitor import MonitorConfig, QuoteMonitor, default_monitor_config
 from neotrade.perf.bench import run_full_bench
 from neotrade.signals import SignalModel, score_universe
+from neotrade.signals.eval import run_signal_eval
 
 DEFAULT_MODEL_PATH = Path("models/signal.txt")
+log = get_logger("cli")
 
 
 def _cmd_version(_: argparse.Namespace) -> int:
@@ -105,8 +109,50 @@ def _cmd_train(args: argparse.Namespace) -> int:
             n_train=result.n_train,
             n_valid=result.n_valid,
         )
-    except OSError:
-        pass
+    except OSError as exc:
+        log.warning("retrain event log skipped: %s", exc)
+    log.info(
+        "train complete n_train=%s n_valid=%s path=%s",
+        result.n_train,
+        result.n_valid,
+        saved,
+    )
+    return 0
+
+
+def _cmd_eval(args: argparse.Namespace) -> int:
+    """Walk-forward eval + baselines + calibration (does not overwrite model)."""
+    cfg = load_tickers_config(args.config)
+    root = project_root()
+    bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
+    if bars.errors:
+        for err in bars.errors:
+            print(f"warn: {err}", file=sys.stderr)
+    try:
+        report = run_signal_eval(
+            bars.frames,
+            horizon=args.horizon,
+            n_folds=args.folds,
+            num_boost_round=args.rounds,
+            save=not args.no_save,
+        )
+    except (ValueError, RuntimeError) as exc:
+        log.error("eval failed: %s", exc)
+        print(f"eval failed: {exc}", file=sys.stderr)
+        return 1
+    for line in report.summary_lines():
+        print(line)
+    if not args.no_save:
+        print("saved: data/learning/eval_latest.json")
+    log.info(
+        "eval done mean_acc=%.4f edge_al=%+.4f edge_mom=%+.4f",
+        report.mean_accuracy,
+        report.edge_vs_always_long,
+        report.edge_vs_momentum,
+    )
+    # Non-zero if model fails both baselines (honest quality signal)
+    if report.edge_vs_always_long <= 0 and report.edge_vs_momentum <= 0:
+        return 2
     return 0
 
 
@@ -255,11 +301,13 @@ def _cmd_paper_plan(args: argparse.Namespace) -> int:
 def _cmd_paper_execute(args: argparse.Namespace) -> int:
     """Submit paper market orders; requires ``--confirm`` and US RTH."""
     if not args.confirm:
+        log.warning("execute refused: missing --confirm")
         print("refusing execute without --confirm (dry-run: neotrade paper-plan)", file=sys.stderr)
         return 2
     try:
         session = assert_execute_allowed()
     except RuntimeError as exc:
+        log.warning("execute blocked by session: %s", exc)
         print(str(exc), file=sys.stderr)
         return 3
     print(session.summary_line())
@@ -268,13 +316,16 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
         client = AlpacaPaperClient()
         acct = client.get_account()
         if acct.trading_blocked or acct.account_blocked:
+            log.error("account trading blocked")
             print("account trading blocked", file=sys.stderr)
             return 1
         positions = client.list_positions()
     except FileNotFoundError as exc:
+        log.error("%s", exc)
         print(str(exc), file=sys.stderr)
         return 1
     except (RuntimeError, AlpacaAPIError, OSError) as exc:
+        log.error("execute prep failed: %s", exc)
         print(str(exc), file=sys.stderr)
         return 1
     plan = build_trade_plan(
@@ -289,6 +340,7 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
         print("no intents to execute")
         for note in plan.notes:
             print(f"note: {note}")
+        log.info("execute: no intents")
         return 0
     errors = 0
     for intent in plan.intents:
@@ -303,8 +355,16 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
                 f"submitted {result.side} {result.symbol} qty={result.qty} "
                 f"id={result.id} status={result.status}"
             )
+            log.info(
+                "order submitted symbol=%s side=%s id=%s status=%s",
+                result.symbol,
+                result.side,
+                result.id,
+                result.status,
+            )
         except AlpacaAPIError as exc:
             errors += 1
+            log.error("order fail %s: %s", intent.describe(), exc)
             print(f"ORDER FAIL {intent.describe()}: {exc}", file=sys.stderr)
     return 1 if errors else 0
 
@@ -351,22 +411,28 @@ def _cmd_advise(args: argparse.Namespace) -> int:
             llm=llm,
         )
     except FileNotFoundError as exc:
+        log.error("%s", exc)
         print(str(exc), file=sys.stderr)
         return 1
-    except Exception as exc:  # noqa: BLE001
+    except (RuntimeError, OSError, ValueError) as exc:
+        log.error("advise failed: %s", exc)
         print(f"advise failed: {exc}", file=sys.stderr)
         return 1
     print(report.render())
+    print(f"\npolicy: {policy_blurb()}")
+    rating = getattr(args, "rating", None)
+    notes = getattr(args, "notes", "") or ""
     try:
-        append_advice_feedback(
-            stance=report.stance,
-            top_picks=report.top_picks,
-            action=report.action,
-            model=report.model,
-            notes="auto from neotrade advise",
+        path = record_advice_run(
+            report,
+            source="cli",
+            rating=rating,
+            notes=notes or "auto from neotrade advise",
         )
-    except OSError:
-        pass
+        print(f"logged: {path}")
+    except (OSError, ValueError) as exc:
+        log.warning("advice log skipped: %s", exc)
+    log.info("advise done stance=%s model=%s rating=%s", report.stance, report.model, rating)
     return 1 if report.errors and not report.trader_raw else 0
 
 
@@ -510,6 +576,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_train.add_argument("--valid-fraction", type=float, default=0.2)
     p_train.set_defaults(func=_cmd_train)
 
+    p_eval = sub.add_parser(
+        "eval",
+        help="walk-forward LightGBM eval vs baselines (does not save model)",
+    )
+    p_eval.add_argument("--config", type=str, default=None)
+    p_eval.add_argument("--horizon", type=int, default=5)
+    p_eval.add_argument("--folds", type=int, default=4)
+    p_eval.add_argument("--rounds", type=int, default=80)
+    p_eval.add_argument("--no-save", action="store_true", help="skip writing eval_latest.json")
+    p_eval.set_defaults(func=_cmd_eval)
+
     p_sig = sub.add_parser("signals", help="score universe with trained model")
     p_sig.add_argument("--config", type=str, default=None)
     p_sig.add_argument("--model", type=str, default=str(DEFAULT_MODEL_PATH))
@@ -548,6 +625,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_adv.add_argument("--llm-model", type=str, default=None, help="Ollama model name (default env/llama3.2:3b)")
     p_adv.add_argument("--no-account", action="store_true", help="skip Alpaca account/plan context")
     p_adv.add_argument("--mock-llm", action="store_true", help="use offline stub LLM (no Ollama)")
+    p_adv.add_argument(
+        "--rating",
+        type=int,
+        default=None,
+        choices=[1, 2, 3, 4, 5],
+        help="optional 1-5 human quality rating (journal only; not for LightGBM)",
+    )
+    p_adv.add_argument("--notes", type=str, default="", help="optional journal note for learning log")
     p_adv.set_defaults(func=_cmd_advise)
 
     p_bench = sub.add_parser("bench", help="benchmark local Ollama + LightGBM efficiency")
@@ -562,6 +647,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     """Parse CLI args and dispatch to the selected subcommand handler."""
+    setup_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.version:
@@ -570,6 +656,7 @@ def main(argv: list[str] | None = None) -> None:
         _cmd_version(args)
         parser.print_help()
         raise SystemExit(0)
+    log.debug("dispatch command=%s", args.command)
     raise SystemExit(args.func(args))
 
 

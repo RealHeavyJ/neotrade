@@ -21,10 +21,10 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Monitoring | `neotrade monitor` poller (min 5s); quotes anytime free MD allows; execute RTH-only |
 
 ## Quality score (agents)
-- Canonical: **`QUALITY_SCORE.md`** — overall **7.6/10**, floor **7.6**, target **8.5**
+- Canonical: **`QUALITY_SCORE.md`** — overall **8.5/10**, floor **7.6**, next target **9.0**
 - Policy: code changes must **hold or raise** score; never regress below floor
 - Rules for all agents: **`AGENTS.md`**
-- Gap backlog to raise score: `TASKS.md` § senior-review gaps
+- Gap backlog: ML edge (`eval`), optional WS — `TASKS.md`
 
 ## Layout (current)
 ```
@@ -58,9 +58,9 @@ DAILY_TODO.md PROGRESS.md TASKS.md CONTEXT.md
 ## Quality plan
 Canonical score: `QUALITY_SCORE.md` (**7.8**, floor **7.6**).
 1. ~~Market-hours / session gate~~ **done** (RTH execute only)
-2. Signal rigor (walk-forward, calibration, baselines) — P1
-3. Structured logging + narrower error handling — P2
-4. Advise learning policy (journal ≠ train) — P3
+2. ~~Signal rigor (walk-forward, calibration, baselines)~~ **done** (`neotrade eval`)
+3. ~~Structured logging + narrower error handling~~ **done** (`logging_config`, smoke)
+4. ~~Advise learning policy~~ **done** (`learning/policy.py`, user-guide)
 5. ~~Realtime REST monitor~~ **done** (`neotrade monitor`); optional WS later
 
 Do not treat advise prose as ML labels. No default after-hours execute.

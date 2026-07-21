@@ -48,7 +48,7 @@ source .venv/bin/activate    # must source, not execute
 | 1 | Refresh bars if cache stale (>~24h or after big moves) | `neotrade fetch` |
 | 2 | Signals | `neotrade signals` or Dashboard → Signals |
 | 3 | Dry-run plan vs **current** holdings | `neotrade paper-plan` or Dashboard → Plan |
-| 4 | Narrative (optional) | `neotrade advise` or Dashboard → Advise |
+| 4 | Narrative (optional) | `neotrade advise` or Dashboard → Advise (+ optional rating 1–5) |
 | 5 | Execute **only if** plan is intentional | `neotrade paper-execute --confirm` |
 
 **Rules**
@@ -85,6 +85,7 @@ Market is open and book is deployed. After morning checklist is done:
 
 - [ ] `neotrade fetch --force` — full bar refresh  
 - [ ] `neotrade train` — refresh `models/signal.txt`  
+- [ ] `neotrade eval` — walk-forward vs baselines; note edges in status log  
 - [ ] Spot-check: `neotrade signals` — buy list not nonsense vs your thesis  
 - [ ] `neotrade bench` — Ollama still interactive (~few seconds on 3b); note RSS if huge
 
@@ -98,7 +99,7 @@ Market is open and book is deployed. After morning checklist is done:
 ### Learning / quality (light)
 
 - [ ] Skim `data/learning/events.jsonl` and/or `bench_latest.json`  
-- [ ] Optional: 1–5 rating on last advise quality in your notes (formal policy = P3 in `TASKS.md`)  
+- [ ] Optional: rate advise 1–5 via `neotrade advise --rating N` or Dashboard (journal only)  
 - [ ] If something broke: note in status log; do not “fix” by deleting tests
 
 ### Weekly health
@@ -172,7 +173,7 @@ neotrade paper-plan
 
 ```bash
 cd ~/dev/neotrade && source .venv/bin/activate
-neotrade fetch --force && neotrade train
+neotrade fetch --force && neotrade train && neotrade eval
 neotrade signals && neotrade account && neotrade paper-plan
 neotrade bench && pytest -q
 ```

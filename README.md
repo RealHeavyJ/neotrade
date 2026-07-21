@@ -34,6 +34,7 @@ neotrade fetch              # OHLCV (Alpaca auto, yfinance fallback)
 neotrade quotes             # latest Alpaca market data prices
 neotrade monitor --once     # one poll; or --interval 15 (watch only)
 neotrade train              # LightGBM -> models/signal.txt
+neotrade eval               # walk-forward vs baselines (ML rigor)
 neotrade signals            # score universe
 # Paper (after copying .env.example -> .env with paper keys):
 neotrade session              # US RTH? execute allowed?
@@ -46,6 +47,7 @@ neotrade advise
 # neotrade advise --mock-llm   # offline stub
 neotrade bench                 # local Ollama + signal efficiency
 neotrade dashboard             # Streamlit UI (http://localhost:8501)
+# python scripts/smoke_integration.py   # manual integration check
 ```
 
 Config: `config/tickers.yaml` (override with `NEOTRADE_TICKERS` or `--config`).  
@@ -54,6 +56,7 @@ Secrets: `.env` only (gitignored). See `docs/dev-guide.md`.
 Local-only runtime; paper trading via Alpaca paper API; agents via Ollama.
 
 Daily checklist: `DAILY_TODO.md`  
+User guide: `docs/user-guide.md`  
 Dev memory: `PROGRESS.md` · `TASKS.md` · `CONTEXT.md`  
 **Quality score (agents):** `QUALITY_SCORE.md` (floor 7.6 — changes must not regress) · `AGENTS.md`
 

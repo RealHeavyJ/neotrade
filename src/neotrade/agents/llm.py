@@ -73,7 +73,7 @@ class OllamaClient:
             req = urllib.request.Request(f"{self.config.host}/api/tags", method="GET")
             with urllib.request.urlopen(req, timeout=5) as resp:
                 return resp.status == 200
-        except Exception:  # noqa: BLE001
+        except (OSError, urllib.error.URLError, TimeoutError, ValueError):
             return False
 
 

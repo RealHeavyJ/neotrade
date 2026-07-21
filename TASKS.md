@@ -29,20 +29,23 @@ moves quality toward 8.5+ without rebuilding v1.
 - [ ] Longer-term: agent **realtime monitor** (poll/WS quotes within free Alpaca MD limits) — not execute
 
 ### P1 — signal / ML rigor (edge quality)
-- [ ] LightGBM **walk-forward** (or purged CV) eval; stop relying on single time split
-- [ ] Calibration / reliability check (proba vs hit-rate by bucket)
-- [ ] Leakage audit (features vs label horizon); document assumptions
-- [ ] Baseline comparison (e.g. always-long / momentum-only) so “0.55 acc” is contextualized
+- [x] LightGBM **walk-forward** eval (`signals/eval.py`, `neotrade eval`)
+- [x] Calibration bins + Brier score
+- [x] Leakage audit notes + structural checks
+- [x] Baselines: always-long + momentum (`ret_5>0`); edge reported
+- [ ] Optional: purged CV / embargo beyond expanding WF
+- [ ] Optional: improve features until eval edges consistently > 0
 
 ### P2 — observability & errors
-- [ ] Structured logging (module + level); replace silent `except: pass` where it hides failures
-- [ ] Narrow broad `except Exception` in fetch/score/advise paths (typed errors + user message)
-- [ ] Integration smoke script (optional, non-CI): quotes + account + signals once
+- [x] Structured logging (`logging_config.py`; level/JSON/file env)
+- [x] Replace silent learning-log `pass` with `log.warning`
+- [x] Narrow broad `except Exception` on fetch/score/advise/agents/dashboard/bench
+- [x] Integration smoke script: `scripts/smoke_integration.py`
 
 ### P3 — product completeness
-- [ ] **Advise learning policy** (design first): dashboard rating, what to store, **never** auto-feed prose into LightGBM
-- [ ] Wire dashboard Advise to same learning log as CLI (parity)
-- [ ] User-guide for non-dev operators (`docs/user-guide.md`)
+- [x] **Advise learning policy** (`learning/policy.py`) — journal only; never LightGBM
+- [x] CLI `--rating` / `--notes` + dashboard rating UI; shared `record_advice_run`
+- [x] User-guide for operators (`docs/user-guide.md`)
 - [ ] Optional: split `main.py` into `cli/` submodules if CLI keeps growing
 
 ### P4 — realtime monitoring (not AH trading)
@@ -60,8 +63,9 @@ moves quality toward 8.5+ without rebuilding v1.
 - Institutional multi-account / OMS features  
 
 ## Status
-**v1 + P0 RTH + P4 monitor poller.** Score floor **7.6** (see `QUALITY_SCORE.md`).  
-**Next code default:** P1 ML rigor **or** P2 logging.  
-**Ops:** `DAILY_TODO.md` · `neotrade monitor` for live watch.
+**v1 + P0–P4 core gaps closed** (WS/partial-fills still optional).  
+**Score:** see `QUALITY_SCORE.md` (floor 7.6).  
+**Next:** feature/label work for `eval` edges > 0, or optional WS.  
+**Ops:** `DAILY_TODO.md` · `docs/user-guide.md`.
 
 Last updated: 2026-07-20

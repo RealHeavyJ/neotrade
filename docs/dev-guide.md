@@ -60,6 +60,19 @@ Thresholds: buy ≥ 0.55, sell ≤ 0.45 (override on `signals`).
 
 `models/` is gitignored.
 
+### Signal evaluation (P1 rigor)
+
+```bash
+neotrade eval                 # walk-forward vs always-long + momentum
+neotrade eval --folds 4 --horizon 5 --rounds 80
+```
+
+- Expanding-window folds; train dates strictly before each test block.
+- Baselines: always-long, momentum (`ret_5 > 0`).
+- Calibration bins + Brier; leakage notes documented.
+- Writes `data/learning/eval_latest.json` (not the production model).
+- Exit code `2` if model fails to beat **both** baselines (honest signal).
+
 ## Alpaca paper
 
 1. Copy `.env.example` → `.env` and paste **paper** keys only.
@@ -154,6 +167,40 @@ neotrade advise                # logs advice snapshot for later review
 | UI | Streamlit | Thin client over same APIs |
 
 Learning artifacts (gitignored under `data/`): `data/learning/events.jsonl`, `bench_*.json`.
+
+## Logging (P2)
+
+```bash
+# default: INFO text on stderr
+neotrade session
+
+NEOTRADE_LOG_LEVEL=DEBUG neotrade quotes
+NEOTRADE_LOG_JSON=1 neotrade account
+NEOTRADE_LOG_FILE=data/learning/neotrade.log neotrade train
+```
+
+- Module loggers under ``neotrade.*`` via :func:`neotrade.logging_config.get_logger`.
+- Broad ``except Exception`` narrowed on fetch/score/advise/dashboard paths.
+- Silent ``except: pass`` on learning logs now ``log.warning``.
+
+### Integration smoke (manual, not CI)
+
+```bash
+python scripts/smoke_integration.py
+```
+
+Checks session + quotes + account + signals (needs `.env` + model).
+
+### Advise learning policy (P3)
+
+```bash
+neotrade advise --rating 4 --notes "useful"
+# dashboard: Advise → Run → Save rating
+```
+
+- Policy module: `learning/policy.py` — journal only; **never** LightGBM labels.
+- CLI and dashboard both call `record_advice_run`.
+- User-facing: `docs/user-guide.md`.
 
 ## Tests
 

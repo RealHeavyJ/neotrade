@@ -19,10 +19,12 @@ from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.config.models import TickersConfig
 from neotrade.data.quotes import QuoteSnapshot, fetch_universe_quotes
+from neotrade.logging_config import get_logger
 
 # Free-tier friendly default; override via NEOTRADE_MONITOR_INTERVAL or CLI
 DEFAULT_INTERVAL_S = 15.0
 MIN_INTERVAL_S = 5.0
+log = get_logger("monitor")
 
 
 @dataclass(frozen=True)
@@ -196,8 +198,8 @@ class QuoteMonitor:
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(tick.to_log_dict()) + "\n")
-        except OSError:
-            pass
+        except OSError as exc:
+            log.warning("monitor log write failed path=%s: %s", path, exc)
 
     def iter_ticks(
         self,

@@ -10,6 +10,9 @@ from langgraph.graph import END, START, StateGraph
 from neotrade.agents.context import MarketContext, gather_market_context
 from neotrade.agents.llm import LLMClient, OllamaClient, default_llm
 from neotrade.agents.recommend import AdviceReport, parse_advice
+from neotrade.logging_config import get_logger
+
+log = get_logger("agents.graph")
 
 TRADER_SYSTEM = """You are the Expert Trading Agent for neotrade (paper trading only).
 Use only the provided signals, account, and plan data. Do not invent prices.
@@ -62,7 +65,8 @@ def build_advise_graph(llm: LLMClient | None = None) -> Any:
         try:
             text = client.complete(TRADER_SYSTEM, state.get("context_text") or "")
             return {"trader_raw": text}
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TimeoutError) as exc:
+            log.error("trading_expert failed: %s", exc)
             return {"trader_raw": "", "errors": [f"trader: {exc}"]}
 
     def performance_analyst(state: AdviseState) -> dict[str, Any]:
@@ -73,7 +77,8 @@ def build_advise_graph(llm: LLMClient | None = None) -> Any:
         try:
             text = client.complete(ANALYST_SYSTEM, user)
             return {"analyst_raw": text}
-        except Exception as exc:  # noqa: BLE001
+        except (RuntimeError, OSError, ValueError, TimeoutError) as exc:
+            log.error("performance_analyst failed: %s", exc)
             return {"analyst_raw": "", "errors": [f"analyst: {exc}"]}
 
     graph = StateGraph(AdviseState)

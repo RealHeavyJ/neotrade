@@ -12,10 +12,12 @@ from neotrade.signals.features import FEATURE_COLUMNS, build_features
 from neotrade.signals.score import ScoreResult, SignalRow, score_universe
 
 if TYPE_CHECKING:
+    from neotrade.signals.eval import EvalReport
     from neotrade.signals.model import SignalModel
 
 __all__ = [
     "FEATURE_COLUMNS",
+    "EvalReport",
     "ScoreResult",
     "SignalModel",
     "SignalRow",
@@ -30,4 +32,8 @@ def __getattr__(name: str):
         from neotrade.signals.model import SignalModel as _SignalModel
 
         return _SignalModel
+    if name == "EvalReport":
+        from neotrade.signals.eval import EvalReport as _EvalReport
+
+        return _EvalReport
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

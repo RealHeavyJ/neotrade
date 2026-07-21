@@ -13,7 +13,10 @@ from neotrade.agents.llm import OllamaClient
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.data import load_universe_ohlcv
+from neotrade.logging_config import get_logger
 from neotrade.signals import SignalModel, score_universe
+
+log = get_logger("perf.bench")
 
 
 @dataclass
@@ -82,7 +85,8 @@ def bench_ollama(client: OllamaClient | None = None) -> tuple[bool, str, float |
         else:
             notes.append("latency OK for interactive advise")
         return True, client.config.model, elapsed, notes
-    except Exception as exc:  # noqa: BLE001
+    except (RuntimeError, OSError, TimeoutError, ValueError) as exc:
+        log.warning("ollama bench failed: %s", exc)
         return False, client.config.model, None, [str(exc)]
 
 

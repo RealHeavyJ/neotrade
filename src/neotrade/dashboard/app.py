@@ -20,9 +20,13 @@ from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.data import fetch_universe_quotes, load_universe_ohlcv, prices_for_plan
+from neotrade.learning.policy import advice_events, policy_blurb, record_advice_run
+from neotrade.logging_config import get_logger, setup_logging
 from neotrade.signals import SignalModel, score_universe
 
 DEFAULT_MODEL = project_root() / "models" / "signal.txt"
+setup_logging()
+log = get_logger("dashboard")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -102,7 +106,8 @@ def page_quotes() -> None:
         st.session_state.pop("quotes_df", None)
     try:
         snap = fetch_universe_quotes(prefer_alpaca=True, fallback_cache=True)
-    except Exception as exc:  # noqa: BLE001
+    except (RuntimeError, OSError, ValueError) as exc:
+        log.error("quotes page failed: %s", exc)
         st.error(str(exc))
         return
     df = pd.DataFrame([r.to_dict() for r in snap.rows])
@@ -155,6 +160,7 @@ def page_account() -> None:
         positions = client.list_positions()
         orders = client.list_orders(status="open", limit=50)
     except (RuntimeError, AlpacaAPIError, OSError) as exc:
+        log.error("account page failed: %s", exc)
         st.error(str(exc))
         return
     c1, c2, c3 = st.columns(3)
@@ -239,7 +245,8 @@ def page_plan() -> None:
             risk=risk,
             prices=prices_for_plan(cfg, frames=bars.frames),
         )
-    except Exception as exc:  # noqa: BLE001
+    except (RuntimeError, OSError, ValueError, FileNotFoundError, AlpacaAPIError) as exc:
+        log.error("plan page failed: %s", exc)
         st.error(str(exc))
         return
     for line in plan.summary_lines():
@@ -248,6 +255,7 @@ def page_plan() -> None:
 
 def page_advise() -> None:
     st.subheader("Local agents (Ollama)")
+    st.caption(policy_blurb())
     use_mock = st.checkbox("Use mock LLM (offline)", value=False)
     no_account = st.checkbox("Skip Alpaca context", value=False)
     llm_model = st.text_input("Ollama model", value=OllamaConfig.from_env().model)
@@ -276,12 +284,59 @@ def page_advise() -> None:
                     include_account=not no_account,
                     llm=llm,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except (RuntimeError, OSError, ValueError, FileNotFoundError) as exc:
+                log.error("advise page failed: %s", exc)
                 st.error(str(exc))
                 return
+        st.session_state["last_advice_report"] = report
+        try:
+            path = record_advice_run(report, source="dashboard", notes="auto from dashboard advise")
+            st.session_state["last_advice_log"] = str(path)
+        except (OSError, ValueError) as exc:
+            log.warning("dashboard advice log skipped: %s", exc)
+        log.info("dashboard advise stance=%s", report.stance)
+
+    report = st.session_state.get("last_advice_report")
+    if report is not None:
         st.code(report.render(), language=None)
-        if report.errors:
+        if getattr(report, "errors", None):
             st.warning("; ".join(report.errors))
+        st.subheader("Rate this advice (journal only)")
+        st.caption("1 = poor · 5 = excellent. Does **not** retrain LightGBM.")
+        rating = st.slider("Quality rating", min_value=1, max_value=5, value=3)
+        notes = st.text_input("Notes (optional)", value="")
+        if st.button("Save rating"):
+            try:
+                path = record_advice_run(
+                    report,
+                    source="dashboard",
+                    rating=int(rating),
+                    notes=notes or "dashboard rating",
+                )
+                st.success(f"Saved rating to {path}")
+            except (OSError, ValueError) as exc:
+                st.error(str(exc))
+        if st.session_state.get("last_advice_log"):
+            st.caption(f"Last auto-log: `{st.session_state['last_advice_log']}`")
+
+    recent = advice_events(limit=8)
+    if recent:
+        st.subheader("Recent advice log")
+        st.dataframe(
+            [
+                {
+                    "ts": r.get("ts", "")[:19],
+                    "kind": r.get("kind"),
+                    "source": (r.get("payload") or {}).get("source"),
+                    "stance": (r.get("payload") or {}).get("stance"),
+                    "rating": (r.get("payload") or {}).get("rating"),
+                    "picks": ",".join((r.get("payload") or {}).get("top_picks") or [])[:40],
+                }
+                for r in reversed(recent)
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 def page_bench() -> None:

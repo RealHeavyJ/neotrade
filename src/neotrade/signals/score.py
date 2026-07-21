@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from neotrade.logging_config import get_logger
 from neotrade.signals.model import SignalModel
+
+log = get_logger("signals.score")
 
 
 @dataclass(frozen=True)
@@ -131,7 +134,9 @@ def score_universe(
                     as_of=as_of,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 - collect and continue
+        except (RuntimeError, ValueError, KeyError, TypeError) as exc:
+            log.warning("score failed symbol=%s: %s", symbol, exc)
             errors.append(f"{symbol}: {exc}")
     rows.sort(key=lambda r: r.proba, reverse=True)
+    log.debug("scored n=%s errors=%s", len(rows), len(errors))
     return ScoreResult(rows=rows, errors=errors)

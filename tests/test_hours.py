@@ -4,7 +4,6 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from neotrade.broker.hours import (
-    ET,
     SessionPhase,
     assert_execute_allowed,
     get_session_status,

@@ -9,7 +9,7 @@ from neotrade.agents.llm import MockLLM
 from neotrade.agents.recommend import parse_advice
 from neotrade.broker.alpaca import AccountSnapshot
 from neotrade.config.models import RiskSettings, Ticker, TickersConfig
-from neotrade.signals.score import ScoreResult, SignalRow, score_universe
+from neotrade.signals.score import ScoreResult, SignalRow
 
 
 def _synth_ohlcv(n: int = 120, seed: int = 0) -> pd.DataFrame:

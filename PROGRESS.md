@@ -65,10 +65,28 @@ neotrade advise | bench | dashboard
 - Dashboard Quotes auto-refresh; never executes
 - Score **8.0**
 
+### P1 ML eval (DONE 2026-07-20)
+- `signals/eval.py` + `neotrade eval` — walk-forward, always-long + momentum baselines
+- Calibration bins, Brier, leakage report; `data/learning/eval_latest.json`
+- Exit 2 if model fails both baselines
+- Score **8.2**
+
+### P2 logging (DONE 2026-07-20)
+- `logging_config.py` — level/JSON/file via env
+- Narrowed bare Exception handlers; learning log failures warn
+- `scripts/smoke_integration.py`
+- Score **8.4**
+
+### P3 advise learning (DONE 2026-07-20)
+- `learning/policy.py` — journal only; never LightGBM
+- CLI `--rating` / dashboard rate UI; shared `record_advice_run`
+- `docs/user-guide.md`
+- Score **8.5** (target hit); next lift = ML edge
+
 ### Next engineering (default)
-1. **P1 ML rigor** (walk-forward / baselines) — main path to 8.5  
-2. Or P2 structured logging  
-3. Keep execute RTH-only; optional WS later
+1. Feature/label work until `neotrade eval` beats always-long  
+2. Optional WS quotes  
+3. Keep execute RTH-only
 
 ### Quality score (stored)
 - **`QUALITY_SCORE.md`**: overall **7.6**, floor **7.6**, target **8.5**
