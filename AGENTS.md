@@ -24,6 +24,41 @@ For every coding/planning agent (Grok Build CLI, subagents, future tools).
 3. If architecture/quality shifted: update `QUALITY_SCORE.md` score log (honest)  
 4. Touch `PROGRESS.md` / `TASKS.md` only as needed — keep memory tight (`TOKEN_MANAGEMENT.md`)
 
+## Session close checklist (mandatory)
+
+Run this **before ending any coding or planning session** that changed code, config, or project memory. Skip only pure Q&A with no file edits.
+
+### 1. Verify (if code changed)
+
+- [ ] `source .venv/bin/activate && pytest -q` (must pass)  
+- [ ] `ruff check src/neotrade tests` when practical  
+- [ ] No secrets / `.env` staged for commit  
+
+### 2. Memory (keep tight — do not rewrite history)
+
+- [ ] **`PROGRESS.md`**: refresh **top checkpoint only** (what shipped, CLI notes, next default). Date it.  
+- [ ] **`TASKS.md`**: mark done items; set **Status / next** to one clear default.  
+- [ ] **`QUALITY_SCORE.md`**: if quality/architecture shifted, update dimensions + overall **honestly** and append score log. Overall must stay **≥ floor (7.6)** and prefer **≥ previous overall**.  
+- [ ] **`CONTEXT.md`**: only if a **locked decision** changed (broker, labels, gates, etc.).  
+- [ ] **`DAILY_TODO.md`**: only if ops cadence or weekly commands changed.  
+- [ ] **`TESTING.md` / docs**: only if new tests or user-facing CLI behavior shipped.  
+
+### 3. Hand-off line (end of agent reply)
+
+State in one short block:
+
+1. What shipped (1–3 bullets)  
+2. Test/score status (`N passed`, overall score if changed)  
+3. **Next session default** (single track)  
+4. Ops reminder if relevant (`DAILY_TODO`, `backtest` gate, RTH)  
+
+### 4. Do not on close
+
+- Full rewrite of PROGRESS history  
+- Duplicate the same status into every markdown file  
+- Rebuild finished v1 layers “for cleanliness”  
+- Leave TASKS with no clear next item after coding work  
+
 ## Do not
 
 - Require cloud LLMs for runtime agents  
@@ -42,4 +77,4 @@ For every coding/planning agent (Grok Build CLI, subagents, future tools).
 | `PROGRESS.md` | Restart checkpoint |
 | `DAILY_TODO.md` | Human ops only |
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20

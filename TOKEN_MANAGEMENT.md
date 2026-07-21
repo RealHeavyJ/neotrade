@@ -15,7 +15,7 @@
 ## Practices
 - Markdown memory > re-explaining chat history  
 - No secrets / large CSVs / model dumps in prompts  
-- End session: update PROGRESS top + TASKS status only  
+- **End session:** full **Session close checklist** in `AGENTS.md` (PROGRESS top + TASKS + score if needed + hand-off line)  
 - Prefer incremental edits over rewrites of working modules  
 
 ## Budget
@@ -35,4 +35,4 @@
 ## Quality score
 Canonical score + non-regression: **`QUALITY_SCORE.md`**. Agent rules: **`AGENTS.md`**.
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20

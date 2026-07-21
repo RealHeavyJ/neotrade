@@ -70,16 +70,17 @@ Do not treat advise prose as ML labels. No default after-hours execute.
 | File | Use |
 |------|-----|
 | `QUALITY_SCORE.md` | **Score floor + non-regression (agents first)** |
-| `AGENTS.md` | Mandatory agent rules |
+| `AGENTS.md` | Mandatory rules + **session close checklist** |
 | `DAILY_TODO.md` | Your daily ops checklist |
-| `PROGRESS.md` top | Restart checkpoint |
+| `PROGRESS.md` top | Restart checkpoint + close checklist reminder |
 | `TASKS.md` | Next coding priority + score-up backlog |
 | `CONTEXT.md` | This file — decisions only |
 | `TESTING.md` | Test inventory |
 | `TOKEN_MANAGEMENT.md` | Context budget rules |
 | `docs/dev-guide.md` | How to run subsystems |
+| `docs/user-guide.md` | Operator guide |
 
 ## Next session one-liner
-Ops → `DAILY_TODO.md` post-open. Code → P0 market-hours gate (raises score). Check `QUALITY_SCORE.md` first.
+Ops → `DAILY_TODO.md`. Code → backtest gate PASS work (or see `TASKS.md`). Close → `AGENTS.md` session checklist.
 
 Last updated: 2026-07-19

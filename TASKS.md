@@ -4,7 +4,8 @@
 1. Operator day? → `DAILY_TODO.md` only  
 2. Coding day? → **`QUALITY_SCORE.md`** + `AGENTS.md` + `PROGRESS.md` (top) + this file  
 3. `source .venv/bin/activate && pytest -q`  
-4. One track only — prefer P0–P4 (must hold/raise score ≥ 7.6)
+4. One track only — must hold/raise score ≥ floor (**7.6**); prefer improve overall  
+5. **End of session:** `AGENTS.md` → Session close checklist (mandatory if files changed)
 
 ## Complete (v1 foundation) — do not redo
 - [x] Scaffold, config, neotrade-core-22
@@ -70,4 +71,4 @@ moves quality toward 8.5+ without rebuilding v1.
 **Next:** improve signals/plan until `neotrade backtest` gate PASSes; optional partial-fills.  
 **Ops:** weekly `eval` + `backtest` before trusting retrain.
 
-Last updated: 2026-07-20
+Last updated: 2026-07-20 (session close)

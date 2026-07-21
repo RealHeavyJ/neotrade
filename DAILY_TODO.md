@@ -13,7 +13,8 @@ Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intenti
 1. **Daily** — every US market day you care about the book (or any day you touch neotrade).  
 2. **Weekly** — once per calendar week (pick a fixed day, e.g. Sunday evening or Friday after close).  
 3. Tick boxes in a copy/notes app if you prefer; update the **status log** at the bottom here.  
-4. Engineering work (P0–P4) lives in `TASKS.md` — not required for ops health.
+4. Engineering work lives in `TASKS.md` — not required for ops health.  
+5. **Coding session end** (agents/dev): use **Session close checklist** in `AGENTS.md` / top of `PROGRESS.md` — not this file.
 
 ```bash
 cd ~/dev/neotrade

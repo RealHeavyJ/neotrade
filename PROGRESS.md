@@ -1,6 +1,60 @@
 # Progress Log
 
-## Session end checkpoint (2026-07-19 ~14:30 PT) — RESTART HERE
+## Session close checklist (agents + humans)
+
+Before ending a **coding** session (see also `AGENTS.md`):
+
+1. [ ] `pytest -q` green (if code changed)  
+2. [ ] Update **this file’s top checkpoint** (shipped + next default)  
+3. [ ] Update `TASKS.md` status / next  
+4. [ ] Update `QUALITY_SCORE.md` only if score dimensions moved  
+5. [ ] One-line hand-off: shipped · tests/score · next track  
+
+Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
+
+---
+
+## Session end checkpoint (2026-07-20 EOD) — RESTART HERE
+
+### Shipped this long session (summary)
+- Full v1 loop + P0 RTH gate, P1 eval, P2 logging, P3 advise policy, P4 monitor+WS  
+- Relative/CS LightGBM; portfolio **`neotrade backtest`** + promotion gate  
+- Session close checklist in `AGENTS.md` / PROGRESS top  
+- Live note: last **backtest gate=FAIL** (signal trails eq-weight & momentum on return)
+
+### Current stack (do not rebuild)
+
+| Layer | Status |
+|-------|--------|
+| Config + neotrade-core-22 | Done |
+| OHLCV + Alpaca MD REST/WS + monitor | Done |
+| LightGBM relative/CS + eval + **backtest gate** | Done |
+| Paper plan/execute + **RTH gate** | Done |
+| Advise + learning policy (journal only) | Done |
+| Dashboard + logging + smoke script | Done |
+| Quality score | **8.8** / floor **7.6** |
+| Tests | **89 passed** |
+
+### CLI map
+```
+neotrade tickers | fetch | quotes | train | eval | backtest | signals
+neotrade account | session | paper-plan | paper-execute --confirm
+neotrade advise | monitor | stream | bench | dashboard
+```
+
+### Next session default
+1. Improve signals/plan until `neotrade backtest` **gate=PASS**  
+2. Or ops: `DAILY_TODO.md` daily/weekly loop  
+
+### Promote model only if
+`neotrade eval` sane **and** `neotrade backtest` prints `gate=PASS`.
+
+### Uncommitted
+Working tree has many local changes (not committed this session unless you ask).
+
+---
+
+## Older checkpoint (2026-07-19) — archive
 
 ### v1 loop status: COMPLETE (ops + polish remain)
 

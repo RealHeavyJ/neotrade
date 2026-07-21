@@ -60,7 +60,7 @@ Local-only runtime; paper trading via Alpaca paper API; agents via Ollama.
 Daily checklist: `DAILY_TODO.md`  
 User guide: `docs/user-guide.md`  
 Dev memory: `PROGRESS.md` · `TASKS.md` · `CONTEXT.md`  
-**Quality score (agents):** `QUALITY_SCORE.md` (floor 7.6 — changes must not regress) · `AGENTS.md`
+**Agents:** `AGENTS.md` (bootstrap + **session close checklist**) · `QUALITY_SCORE.md` (floor 7.6)
 
 ### Architecture (v1)
 
