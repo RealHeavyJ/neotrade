@@ -75,6 +75,34 @@ neotrade paper-execute --confirm   # submit market orders (paper only)
 Risk defaults live under `risk:` in `config/tickers.yaml` (8% max name, 68/32 sleeves).
 Client **refuses live** Alpaca URLs when `require_paper=True`.
 
+### Market hours gate (RTH only)
+
+```bash
+neotrade session              # phase + allow_execute
+neotrade account              # prints session banner
+neotrade paper-plan           # warns outside RTH (still dry-runs)
+neotrade paper-execute --confirm   # blocked outside 09:30–16:00 ET
+```
+
+- **Execute allowed:** US regular hours only (weekdays, not in holiday table).
+- **No pre-market / after-hours** trading (by design).
+- **Quotes / advise / signals** still work anytime (monitoring ≠ execute).
+- Holidays: lightweight set in `broker/hours.py` (not full exchange calendar).
+
+### Quote monitor (P4 — watch only)
+
+```bash
+neotrade monitor --once              # single poll
+neotrade monitor --interval 15 -v    # loop; Ctrl+C to stop
+neotrade monitor --max-ticks 10 --move-pct 1.5
+```
+
+- Polls Alpaca MD (or cache) on an interval (**min 5s**, default 15s).
+- Flags symbols moving ≥ `--move-pct` vs prior tick.
+- Optional JSONL: `data/learning/monitor.jsonl` (disable with `--no-log`).
+- **Never executes** orders. Session banner shows RTH vs blocked.
+- Env: `NEOTRADE_MONITOR_INTERVAL`, `NEOTRADE_MONITOR_MOVE_PCT`, `NEOTRADE_MONITOR_LOG`.
+
 ## Agents (LangGraph + Ollama) — fully local
 
 Success criterion: trading signals, paper account/plan, and multi-agent advice run

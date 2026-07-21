@@ -17,6 +17,8 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Data | Alpaca MD REST (`iex`) + yfinance fallback |
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
 | Risk | 8% max name · 68/32 sleeves · execute needs `--confirm` |
+| Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
+| Monitoring | `neotrade monitor` poller (min 5s); quotes anytime free MD allows; execute RTH-only |
 
 ## Quality score (agents)
 - Canonical: **`QUALITY_SCORE.md`** — overall **7.6/10**, floor **7.6**, target **8.5**
@@ -53,15 +55,15 @@ DAILY_TODO.md PROGRESS.md TASKS.md CONTEXT.md
 - Default advise-only vs more automation  
 - How aggressively to use learning logs (policy TBD)
 
-## Quality plan (from 2026-07-19 senior review ~7.6/10)
-What held the score back → tracked in `TASKS.md`:
-1. Market-hours / session gate (ops safety)
-2. Signal rigor (walk-forward, calibration, baselines)
-3. Structured logging + narrower error handling
-4. Advise learning policy (journal ≠ train)
-5. Optional WS / richer order lifecycle
+## Quality plan
+Canonical score: `QUALITY_SCORE.md` (**7.8**, floor **7.6**).
+1. ~~Market-hours / session gate~~ **done** (RTH execute only)
+2. Signal rigor (walk-forward, calibration, baselines) — P1
+3. Structured logging + narrower error handling — P2
+4. Advise learning policy (journal ≠ train) — P3
+5. ~~Realtime REST monitor~~ **done** (`neotrade monitor`); optional WS later
 
-Do not treat advise prose as ML labels.
+Do not treat advise prose as ML labels. No default after-hours execute.
 
 ## Memory map (efficient resume)
 | File | Use |

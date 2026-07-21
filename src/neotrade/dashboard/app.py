@@ -10,7 +10,12 @@ import streamlit as st
 from neotrade import __version__
 from neotrade.agents import run_advise
 from neotrade.agents.llm import MockLLM, OllamaClient, OllamaConfig
-from neotrade.broker import AlpacaPaperClient, build_trade_plan, default_risk_limits
+from neotrade.broker import (
+    AlpacaPaperClient,
+    build_trade_plan,
+    default_risk_limits,
+    get_session_status,
+)
 from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
@@ -46,7 +51,8 @@ def load_signals_cached(model_path: str, buy_th: float, sell_th: float) -> pd.Da
 
 def page_overview() -> None:
     st.subheader("System status")
-    col1, col2, col3, col4 = st.columns(4)
+    session = get_session_status()
+    col1, col2, col3, col4, col5 = st.columns(5)
     ollama = OllamaClient()
     ollama_ok = ollama.ping()
     model_ok = DEFAULT_MODEL.is_file()
@@ -58,7 +64,15 @@ def page_overview() -> None:
         st.metric("LLM model", ollama.config.model if ollama_ok else "—")
     with col4:
         st.metric("Data", "Alpaca MD")
-    st.caption(f"neotrade v{__version__} · local-only agents · paper Alpaca")
+    with col5:
+        st.metric("Session", session.label)
+    st.caption(f"neotrade v{__version__} · local-only agents · paper Alpaca · RTH execute only")
+    if session.allow_execute:
+        st.success(session.summary_line())
+    else:
+        st.warning(session.summary_line())
+        if session.next_rth_open_et is not None:
+            st.caption(f"Next RTH open (ET): `{session.next_rth_open_et.isoformat()}`")
 
     cfg = load_tickers_config()
     st.write(f"**Universe:** {cfg.universe.name} ({len(cfg.tickers)} tickers)")
@@ -68,11 +82,22 @@ def page_overview() -> None:
         f"Sleeves: growth={g} · defensive={d} · risk max name={cfg.risk.max_position_pct:.0%} · "
         f"bars provider=`{cfg.data.provider}`"
     )
+    st.caption(
+        "Quotes/monitoring anytime free Alpaca MD allows. "
+        "Paper **execute** only 09:30–16:00 ET weekdays (no pre/after-hours)."
+    )
 
 
 def page_quotes() -> None:
     st.subheader("Live quotes (Alpaca market data)")
-    st.caption("REST latest trade/quote · feed usually IEX on free/paper · cache fallback if needed")
+    st.caption(
+        "REST latest trade/quote · IEX free/paper · monitor only (execute still RTH-gated). "
+        "CLI: `neotrade monitor --interval 15`"
+    )
+    session = get_session_status()
+    st.caption(session.summary_line())
+    auto = st.checkbox("Auto-refresh (Streamlit)", value=False)
+    interval = st.slider("Refresh every (seconds)", min_value=5, max_value=120, value=15, step=5)
     if st.button("Refresh quotes", type="primary"):
         st.session_state.pop("quotes_df", None)
     try:
@@ -87,6 +112,11 @@ def page_quotes() -> None:
         with st.expander("Errors / notes"):
             for e in snap.errors:
                 st.text(e)
+    if auto:
+        import time as _time
+
+        _time.sleep(float(interval))
+        st.rerun()
 
 
 def page_signals() -> None:
@@ -114,6 +144,11 @@ def page_signals() -> None:
 
 def page_account() -> None:
     st.subheader("Alpaca paper")
+    session = get_session_status()
+    if session.allow_execute:
+        st.success(session.summary_line())
+    else:
+        st.warning(session.summary_line())
     try:
         client = AlpacaPaperClient()
         acct = client.get_account()
@@ -173,7 +208,12 @@ def page_account() -> None:
 
 def page_plan() -> None:
     st.subheader("Paper plan (dry-run)")
-    st.caption("Does not submit orders. Use CLI `neotrade paper-execute --confirm` to trade.")
+    st.caption("Does not submit orders. Use CLI `neotrade paper-execute --confirm` during RTH only.")
+    session = get_session_status()
+    if not session.allow_execute:
+        st.warning(session.summary_line() + " — execute would be blocked.")
+    else:
+        st.info(session.summary_line())
     if not DEFAULT_MODEL.is_file():
         st.warning("Train a model first")
         return

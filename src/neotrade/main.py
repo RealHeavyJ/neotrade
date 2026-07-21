@@ -14,12 +14,19 @@ from pathlib import Path
 from neotrade import __version__
 from neotrade.agents import run_advise
 from neotrade.agents.llm import MockLLM, OllamaClient, OllamaConfig
-from neotrade.broker import AlpacaPaperClient, build_trade_plan, default_risk_limits
+from neotrade.broker import (
+    AlpacaPaperClient,
+    assert_execute_allowed,
+    build_trade_plan,
+    default_risk_limits,
+    get_session_status,
+)
 from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import default_config_path, load_tickers_config
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.data import fetch_universe_quotes, load_universe_ohlcv, prices_for_plan
 from neotrade.learning.log import append_advice_feedback, append_retrain_event
+from neotrade.monitor import MonitorConfig, QuoteMonitor, default_monitor_config
 from neotrade.perf.bench import run_full_bench
 from neotrade.signals import SignalModel, score_universe
 
@@ -178,6 +185,8 @@ def _cmd_quotes(args: argparse.Namespace) -> int:
 
 def _cmd_account(_: argparse.Namespace) -> int:
     """Show paper account equity, filled positions, and open orders."""
+    session = get_session_status()
+    print(session.summary_line())
     try:
         client = AlpacaPaperClient()
         acct = client.get_account()
@@ -204,11 +213,21 @@ def _cmd_account(_: argparse.Namespace) -> int:
         )
     if open_orders and not positions:
         print("note: day market orders often stay accepted until the next US regular session")
+    if not session.allow_execute:
+        print("note: paper execute blocked until US RTH (09:30–16:00 ET); no after-hours")
     return 0
 
 
 def _cmd_paper_plan(args: argparse.Namespace) -> int:
     """Dry-run risk-aware order intents (no broker submit)."""
+    session = get_session_status()
+    print(session.summary_line())
+    if not session.allow_execute:
+        print(
+            "warn: outside RTH — plan is dry-run only; execute will be blocked "
+            "(neotrade does not trade pre/after-hours)",
+            file=sys.stderr,
+        )
     try:
         cfg, risk, signals, prices = _load_signals_for_paper(args)
         client = AlpacaPaperClient()
@@ -234,10 +253,16 @@ def _cmd_paper_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_paper_execute(args: argparse.Namespace) -> int:
-    """Submit paper market orders; requires ``--confirm`` safety flag."""
+    """Submit paper market orders; requires ``--confirm`` and US RTH."""
     if not args.confirm:
         print("refusing execute without --confirm (dry-run: neotrade paper-plan)", file=sys.stderr)
         return 2
+    try:
+        session = assert_execute_allowed()
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 3
+    print(session.summary_line())
     try:
         cfg, risk, signals, prices = _load_signals_for_paper(args)
         client = AlpacaPaperClient()
@@ -282,6 +307,17 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
             errors += 1
             print(f"ORDER FAIL {intent.describe()}: {exc}", file=sys.stderr)
     return 1 if errors else 0
+
+
+def _cmd_session(_: argparse.Namespace) -> int:
+    """Print US equity session phase and whether paper execute is allowed."""
+    st = get_session_status()
+    print(st.summary_line())
+    print(f"phase={st.phase.value} is_rth={st.is_rth} trading_day={st.is_trading_day}")
+    print(f"allow_execute={st.allow_execute}")
+    if st.next_rth_open_et is not None:
+        print(f"next_rth_open={st.next_rth_open_et.isoformat()}")
+    return 0 if st.allow_execute else 1
 
 
 def _cmd_advise(args: argparse.Namespace) -> int:
@@ -365,6 +401,50 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     return subprocess.call(cmd)
 
 
+def _cmd_monitor(args: argparse.Namespace) -> int:
+    """Poll Alpaca MD quotes on an interval (monitor only — never executes)."""
+    base = default_monitor_config()
+    interval = float(args.interval) if args.interval is not None else base.interval_s
+    move_pct = float(args.move_pct) if args.move_pct is not None else base.move_pct
+    log_path = Path(args.log) if args.log else (None if args.no_log else base.log_path)
+    cfg_mon = MonitorConfig(
+        interval_s=interval,
+        move_pct=move_pct,
+        prefer_alpaca=not args.cache_only,
+        fallback_cache=True,
+        log_path=log_path,
+    )
+    tickers_cfg = load_tickers_config(args.config)
+    mon = QuoteMonitor(cfg_mon, cfg=tickers_cfg)
+    max_ticks = 1 if args.once else args.max_ticks
+    print(
+        f"monitor start interval>={cfg_mon.clamped_interval():.0f}s "
+        f"move_pct={cfg_mon.move_pct} max_ticks={max_ticks or '∞'} "
+        f"(execute never called; RTH gate unchanged)",
+        flush=True,
+    )
+    try:
+        for tick in mon.iter_ticks(max_ticks=max_ticks):
+            print(tick.summary_line(), flush=True)
+            if args.verbose:
+                for r in tick.snapshot.rows:
+                    if r.price is None:
+                        continue
+                    print(
+                        f"  {r.symbol:<6} {r.price:>10.2f}  {r.source or '—'}",
+                        flush=True,
+                    )
+            for m in tick.moves:
+                print(f"  MOVE {m.describe()}", flush=True)
+            if tick.snapshot.errors and args.verbose:
+                for err in tick.snapshot.errors:
+                    print(f"  err: {err}", file=sys.stderr, flush=True)
+    except KeyboardInterrupt:
+        print("monitor stopped", flush=True)
+        return 0
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the top-level argparse tree for the ``neotrade`` console script."""
     parser = argparse.ArgumentParser(prog="neotrade", description="Local paper-trading decision support")
@@ -392,6 +472,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_quotes.add_argument("--cache-only", action="store_true", help="skip Alpaca; use cached closes")
     p_quotes.set_defaults(func=_cmd_quotes)
 
+    p_mon = sub.add_parser(
+        "monitor",
+        help="poll quotes on an interval (watch only; never executes)",
+    )
+    p_mon.add_argument("--config", type=str, default=None)
+    p_mon.add_argument(
+        "--interval",
+        type=float,
+        default=None,
+        help=f"seconds between polls (min 5, default {15})",
+    )
+    p_mon.add_argument(
+        "--move-pct",
+        type=float,
+        default=None,
+        help="flag symbols moving at least this %% vs prior tick (default 1.0)",
+    )
+    p_mon.add_argument("--once", action="store_true", help="single poll then exit")
+    p_mon.add_argument(
+        "--max-ticks",
+        type=int,
+        default=None,
+        help="stop after N polls (default: run until Ctrl+C)",
+    )
+    p_mon.add_argument("--verbose", "-v", action="store_true", help="print each symbol price")
+    p_mon.add_argument("--cache-only", action="store_true", help="skip Alpaca MD")
+    p_mon.add_argument("--log", type=str, default=None, help="JSONL log path")
+    p_mon.add_argument("--no-log", action="store_true", help="disable JSONL log")
+    p_mon.set_defaults(func=_cmd_monitor)
+
     p_train = sub.add_parser("train", help="train LightGBM signal model on cached OHLCV")
     p_train.add_argument("--config", type=str, default=None)
     p_train.add_argument("--output", type=str, default=str(DEFAULT_MODEL_PATH))
@@ -409,6 +519,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_acct = sub.add_parser("account", help="show Alpaca paper account + positions")
     p_acct.set_defaults(func=_cmd_account)
+
+    p_sess = sub.add_parser("session", help="US RTH session status (execute allowed?)")
+    p_sess.set_defaults(func=_cmd_session)
 
     p_plan = sub.add_parser("paper-plan", help="dry-run trade plan from signals + risk")
     p_plan.add_argument("--config", type=str, default=None)

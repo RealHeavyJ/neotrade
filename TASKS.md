@@ -22,10 +22,11 @@
 Source: 2026-07-19 code review overall **~7.6/10**. Gaps below are the backlog that
 moves quality toward 8.5+ without rebuilding v1.
 
-### P0 — ops safety (do next)
-- [ ] **Market-hours gate** on `paper-plan` / `paper-execute` (warn or block outside US RTH)
-- [ ] Surface session state on `account` + dashboard (open / closed / pre / after)
-- [ ] Optional: refuse day-TIF submit when session closed (or auto-note unfilled risk)
+### P0 — ops safety
+- [x] **Market-hours gate** — execute RTH only; block pre/after-hours/closed (`broker/hours.py`)
+- [x] Surface session on `account`, `session`, `paper-plan`, dashboard Overview/Account/Plan
+- [x] Refuse `paper-execute` outside RTH (exit 3); no extended-hours opt-in
+- [ ] Longer-term: agent **realtime monitor** (poll/WS quotes within free Alpaca MD limits) — not execute
 
 ### P1 — signal / ML rigor (edge quality)
 - [ ] LightGBM **walk-forward** (or purged CV) eval; stop relying on single time split
@@ -44,8 +45,12 @@ moves quality toward 8.5+ without rebuilding v1.
 - [ ] User-guide for non-dev operators (`docs/user-guide.md`)
 - [ ] Optional: split `main.py` into `cli/` submodules if CLI keeps growing
 
-### P4 — realtime (optional)
-- [ ] WebSocket live quotes (REST is enough until UI needs push)
+### P4 — realtime monitoring (not AH trading)
+- [x] Agent-friendly quote poller (`monitor/poller.py`, `neotrade monitor`)
+- [x] Move alerts vs prior tick; JSONL log; min interval 5s
+- [x] Dashboard Quotes auto-refresh option
+- [x] Still **no** execute from monitor; RTH gate unchanged
+- [ ] Optional WebSocket stream when free tier allows
 - [ ] Handle partial fills / order lifecycle in plan (v1 ignores working orders by design)
 
 ## Explicitly deferred
@@ -55,8 +60,8 @@ moves quality toward 8.5+ without rebuilding v1.
 - Institutional multi-account / OMS features  
 
 ## Status
-**v1 runnable.** Quality floor **7.6** in `QUALITY_SCORE.md` (agents: no regressions).  
-**Next code default:** P0 market-hours gate (raises Safety/ops).  
-**Ops:** post-open fill check per `DAILY_TODO.md`.
+**v1 + P0 RTH + P4 monitor poller.** Score floor **7.6** (see `QUALITY_SCORE.md`).  
+**Next code default:** P1 ML rigor **or** P2 logging.  
+**Ops:** `DAILY_TODO.md` · `neotrade monitor` for live watch.
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20

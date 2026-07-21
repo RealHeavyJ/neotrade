@@ -45,20 +45,30 @@ neotrade advise | bench | dashboard
 - Google-style docstrings on core public APIs
 - Tests still **35 passed**
 
-### Score-back plan (review 7.6 → aim 8.5+)
-Full checklist in `TASKS.md` § “close senior-review gaps”. Summary:
+### P0 market-hours gate (DONE 2026-07-20)
+- `broker/hours.py` — US RTH 09:30–16:00 ET; block pre/AH/closed/holiday
+- CLI: `neotrade session`; banners on account/plan; execute hard-block
+- Dashboard Overview/Account/Plan show session
+- Policy: **no after-hours trading**; quotes/monitor anytime
 
+### Score-back plan (7.8 → aim 8.5+)
 | Gap | Track |
 |-----|--------|
-| No session/hours gate | P0 market-hours |
+| ~~No session gate~~ | ~~P0 done~~ |
 | ML edge unproven | P1 walk-forward / calibration / baselines |
-| Weak observability; broad excepts | P2 structured logging |
-| Advise log incomplete product story | P3 learning policy + dashboard parity |
-| No WS / partial-fill modeling | P4 optional realtime |
+| Weak observability | P2 structured logging |
+| Advise log policy | P3 |
+| Realtime **monitor** (user long-term) | P4 poll/WS — not AH execute |
+
+### P4 quote monitor (DONE 2026-07-20)
+- `monitor/poller.py` + `neotrade monitor` (interval, moves, JSONL)
+- Dashboard Quotes auto-refresh; never executes
+- Score **8.0**
 
 ### Next engineering (default)
-1. **P0 Market-hours gate** on plan/execute  
-2. Then P1 signal rigor or P3 advise policy (user choice)
+1. **P1 ML rigor** (walk-forward / baselines) — main path to 8.5  
+2. Or P2 structured logging  
+3. Keep execute RTH-only; optional WS later
 
 ### Quality score (stored)
 - **`QUALITY_SCORE.md`**: overall **7.6**, floor **7.6**, target **8.5**

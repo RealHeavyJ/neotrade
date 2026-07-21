@@ -32,12 +32,14 @@ source .venv/bin/activate   # must source, not execute
 neotrade tickers
 neotrade fetch              # OHLCV (Alpaca auto, yfinance fallback)
 neotrade quotes             # latest Alpaca market data prices
+neotrade monitor --once     # one poll; or --interval 15 (watch only)
 neotrade train              # LightGBM -> models/signal.txt
 neotrade signals            # score universe
 # Paper (after copying .env.example -> .env with paper keys):
+neotrade session              # US RTH? execute allowed?
 neotrade account
-neotrade paper-plan
-# neotrade paper-execute --confirm
+neotrade paper-plan           # warns outside RTH
+# neotrade paper-execute --confirm   # RTH only; blocked pre/after-hours
 # Agents (local Ollama — no cloud LLM):
 # brew services start ollama && ollama pull llama3.2:3b
 neotrade advise

@@ -54,7 +54,8 @@ source .venv/bin/activate    # must source, not execute
 **Rules**
 
 - Prefer **advise-only** most days; execute is the exception.  
-- Outside US RTH (~09:30–16:00 ET Mon–Fri): day market orders may sit `accepted` unfilled — avoid execute unless you accept that.  
+- **Execute is gated:** `neotrade paper-execute` only works **09:30–16:00 ET** on trading days (no pre/after-hours). Check `neotrade session`.  
+- Quotes / signals / advise still OK anytime (monitor ≠ trade).  
 - Advise is opinion only — does **not** retrain LightGBM.
 
 ### D. End of day (optional, ~2 min)
@@ -114,8 +115,10 @@ These stay in **`TASKS.md`** until built — then ops shrinks:
 
 | Until this ships… | You still must… |
 |-------------------|-----------------|
-| P0 market-hours gate | Avoid blind execute off-hours |
+| ~~P0 market-hours gate~~ | ~~Done — execute blocked off RTH~~ |
 | Unattended scheduler | Run daily/weekly yourself |
+| ~~REST quote monitor (P4)~~ | Optional: `neotrade monitor -v` instead of manual refresh |
+| Unattended 24/7 driver | Still manual daily/weekly |
 | Advise learning policy | Manually judge advise; don’t feed it to train |
 | 24/7 agent driver | No overnight automation — laptop + you |
 
