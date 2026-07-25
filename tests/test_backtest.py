@@ -85,7 +85,7 @@ def test_evaluate_gate_pass_and_fail():
         n_days=100,
         final_equity=108_000,
     )
-    g = evaluate_gate(good, eq, mom)
+    g = evaluate_gate(good, eq, mom, min_sharpe=0.35)
     assert g.pass_ is True
     assert g.beat_equal_weight is True
 
@@ -100,9 +100,49 @@ def test_evaluate_gate_pass_and_fail():
         n_days=100,
         final_equity=90_000,
     )
-    g2 = evaluate_gate(bad, eq, mom, max_dd_limit=0.35)
+    g2 = evaluate_gate(bad, eq, mom, max_dd_limit=0.35, min_sharpe=0.35)
     assert g2.pass_ is False
     assert g2.drawdown_ok is False
+
+
+def test_evaluate_gate_require_both():
+    sig = StrategyMetrics(
+        name="s",
+        total_return=0.10,
+        cagr=0.1,
+        max_drawdown=0.1,
+        sharpe=1.0,
+        volatility=0.2,
+        turnover=1.0,
+        n_days=50,
+        final_equity=110_000,
+    )
+    eq = StrategyMetrics(
+        name="e",
+        total_return=0.05,
+        cagr=0.05,
+        max_drawdown=0.1,
+        sharpe=0.5,
+        volatility=0.15,
+        turnover=0.0,
+        n_days=50,
+        final_equity=105_000,
+    )
+    mom = StrategyMetrics(
+        name="m",
+        total_return=0.20,
+        cagr=0.2,
+        max_drawdown=0.1,
+        sharpe=0.8,
+        volatility=0.2,
+        turnover=1.0,
+        n_days=50,
+        final_equity=120_000,
+    )
+    g = evaluate_gate(sig, eq, mom, require_both_baselines=True, min_sharpe=0.35)
+    assert g.pass_ is False  # beats eq but not mom
+    g2 = evaluate_gate(sig, eq, mom, require_both_baselines=False, min_sharpe=0.35)
+    assert g2.pass_ is True
 
 
 def test_run_portfolio_backtest_smoke():
@@ -113,6 +153,7 @@ def test_run_portfolio_backtest_smoke():
         initial_cash=100_000,
         train_days=100,
         retrain_every=40,
+        rebalance_every=15,
         num_boost_round=30,
         cost_bps=5.0,
         fill="next_open",

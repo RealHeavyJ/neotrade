@@ -37,8 +37,9 @@ moves quality toward 8.5+ without rebuilding v1.
 - [ ] Optional: purged CV / embargo beyond expanding WF
 - [x] Feature upgrade + relative labels + CS ranks (2026-07-20)
 - [x] Portfolio walk-forward **backtest** + promotion gate (`neotrade backtest`)
-- [ ] Re-check: keep `eval` / backtest gate healthy after data refreshes
-- [ ] Improve strategy until backtest gate PASSes consistently
+- [x] Improve strategy: ranked top-N + model/mom blend → BT **PASS** (2026-07-25)
+- [x] Smarter model track: regime filter + multi-window stable gate + cost stress (2026-07-25)
+- [ ] Re-check: keep stable_gate PASS after data refreshes / longer history
 
 ### P2 — observability & errors
 - [x] Structured logging (`logging_config.py`; level/JSON/file env)
@@ -67,8 +68,10 @@ moves quality toward 8.5+ without rebuilding v1.
 - Institutional multi-account / OMS features  
 
 ## Status
-**v1 + full monitor path + portfolio backtest gate.** Score floor **7.6**.  
-**Next:** improve signals/plan until `neotrade backtest` gate PASSes; optional partial-fills.  
-**Ops:** weekly `eval` + `backtest` before trusting retrain.
+**v1 complete.** Score **9.1** / floor **7.6**.  
+**2026-07-25 model track:** regime + multi-window stable gate → **promote=True** (3/3 windows PASS, cost stress ok).  
+**Next:** experiment ledger (desk EXPERIMENT → result); optional scheduled desk; ops Mon.  
+**Promote:** `neotrade backtest` exit 0 (full + stable gates).  
+**Desk:** `neotrade desk` shipped (ops/quant/PM/critic).
 
-Last updated: 2026-07-20 (session close)
+Last updated: 2026-07-25

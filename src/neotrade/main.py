@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 
 from neotrade import __version__
-from neotrade.agents import run_advise
+from neotrade.agents import run_advise, run_desk
+from neotrade.agents.desk import DeskMockLLM
 from neotrade.agents.llm import MockLLM, OllamaClient, OllamaConfig
 from neotrade.broker import (
     AlpacaPaperClient,
@@ -174,12 +175,19 @@ def _cmd_backtest(args: argparse.Namespace) -> int:
         horizon=int(args.horizon),
         train_days=int(args.train_days),
         retrain_every=int(args.retrain_every),
+        rebalance_every=int(args.rebalance_every),
         num_boost_round=int(args.rounds),
         cost_bps=float(args.cost_bps),
         buy_threshold=float(args.buy_threshold) if args.buy_threshold is not None else risk.buy_threshold,
         sell_threshold=float(args.sell_threshold) if args.sell_threshold is not None else risk.sell_threshold,
         fill=str(args.fill),
         momentum_top_n=int(args.momentum_top_n),
+        n_windows=int(args.windows),
+        min_window_pass_frac=float(args.min_window_pass),
+        use_regime=not args.no_regime,
+        cost_stress_bps=float(args.cost_stress_bps),
+        min_sharpe=float(args.min_sharpe),
+        require_both_baselines=bool(args.require_both),
     )
     try:
         report = run_portfolio_backtest(bars.frames, cfg, risk=risk, bt=bt)
@@ -193,13 +201,13 @@ def _cmd_backtest(args: argparse.Namespace) -> int:
         path = save_backtest_report(report)
         print(f"saved: {path}")
     log.info(
-        "backtest done gate=%s signal_ret=%.4f eq_ret=%.4f mom_ret=%.4f",
+        "backtest done promote=%s full_gate=%s signal_ret=%.4f",
+        report.promote,
         report.gate.pass_,
         report.signal.total_return,
-        report.equal_weight.total_return,
-        report.momentum.total_return,
     )
-    return 0 if report.gate.pass_ else 2
+    # exit 0 only if full + stable gates pass (smarter promote)
+    return 0 if report.promote else 2
 
 
 def _cmd_signals(args: argparse.Namespace) -> int:
@@ -482,6 +490,57 @@ def _cmd_advise(args: argparse.Namespace) -> int:
     return 1 if report.errors and not report.trader_raw else 0
 
 
+def _cmd_desk(args: argparse.Namespace) -> int:
+    """Multi-agent desk: ops + quant + PM + critic (local LLM; no auto-execute)."""
+    model_path = _resolve_model_path(args.model)
+    if args.mock_llm:
+        llm: object = DeskMockLLM()
+    else:
+        cfg = OllamaConfig.from_env()
+        if args.llm_model:
+            cfg = OllamaConfig(
+                host=cfg.host,
+                model=args.llm_model,
+                temperature=cfg.temperature,
+                timeout=cfg.timeout,
+            )
+        llm = OllamaClient(cfg)
+        if not llm.ping():
+            print(
+                f"Ollama not reachable at {cfg.host}. "
+                f"Start Ollama or use --mock-llm.",
+                file=sys.stderr,
+            )
+            return 1
+    try:
+        report = run_desk(
+            model_path=model_path,
+            config_path=args.config,
+            include_account=not args.no_account,
+            llm=llm,  # type: ignore[arg-type]
+            save=not args.no_save,
+        )
+    except FileNotFoundError as exc:
+        log.error("%s", exc)
+        print(str(exc), file=sys.stderr)
+        return 1
+    except (RuntimeError, OSError, ValueError) as exc:
+        log.error("desk failed: %s", exc)
+        print(f"desk failed: {exc}", file=sys.stderr)
+        return 1
+    print(report.render())
+    print(f"\npolicy: {policy_blurb()}")
+    if not args.no_save:
+        print("saved: data/learning/desk_latest.json")
+    log.info(
+        "desk done action=%s promote=%s allow_execute=%s",
+        report.final_action,
+        report.promote,
+        report.allow_execute,
+    )
+    return 1 if report.errors and not report.critic_raw else 0
+
+
 def _cmd_bench(_: argparse.Namespace) -> int:
     """Benchmark local Ollama latency and LightGBM score speed."""
     report = run_full_bench(save=True)
@@ -739,12 +798,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--horizon", type=int, default=5)
     p_bt.add_argument("--train-days", type=int, default=120)
     p_bt.add_argument("--retrain-every", type=int, default=21)
-    p_bt.add_argument("--rounds", type=int, default=80)
+    p_bt.add_argument(
+        "--rebalance-every",
+        type=int,
+        default=10,
+        help="days between score+rebalance (default 10)",
+    )
+    p_bt.add_argument("--rounds", type=int, default=100)
     p_bt.add_argument("--cost-bps", type=float, default=5.0, help="one-way cost in bps per fill")
     p_bt.add_argument("--buy-threshold", type=float, default=None)
     p_bt.add_argument("--sell-threshold", type=float, default=None)
     p_bt.add_argument("--fill", type=str, default="next_open", choices=["next_open", "next_close"])
     p_bt.add_argument("--momentum-top-n", type=int, default=5)
+    p_bt.add_argument(
+        "--windows",
+        type=int,
+        default=3,
+        help="chronological stability windows (default 3; 1=full sample only)",
+    )
+    p_bt.add_argument(
+        "--min-window-pass",
+        type=float,
+        default=0.67,
+        help="fraction of windows that must PASS (default 0.67)",
+    )
+    p_bt.add_argument("--no-regime", action="store_true", help="disable vol/breadth regime filter")
+    p_bt.add_argument(
+        "--cost-stress-bps",
+        type=float,
+        default=10.0,
+        help="stress cost bps; must still beat a baseline (default 10)",
+    )
+    p_bt.add_argument("--min-sharpe", type=float, default=0.35)
+    p_bt.add_argument(
+        "--require-both",
+        action="store_true",
+        help="require beating both eq-weight and momentum baselines",
+    )
     p_bt.add_argument("--no-save", action="store_true")
     p_bt.set_defaults(func=_cmd_backtest)
 
@@ -795,6 +885,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_adv.add_argument("--notes", type=str, default="", help="optional journal note for learning log")
     p_adv.set_defaults(func=_cmd_advise)
+
+    p_desk = sub.add_parser(
+        "desk",
+        help="multi-agent desk (ops/quant/PM/critic) — smarter process, no auto-execute",
+    )
+    p_desk.add_argument("--config", type=str, default=None)
+    p_desk.add_argument("--model", type=str, default=str(DEFAULT_MODEL_PATH))
+    p_desk.add_argument("--llm-model", type=str, default=None)
+    p_desk.add_argument("--no-account", action="store_true")
+    p_desk.add_argument("--mock-llm", action="store_true")
+    p_desk.add_argument("--no-save", action="store_true")
+    p_desk.set_defaults(func=_cmd_desk)
 
     p_bench = sub.add_parser("bench", help="benchmark local Ollama + LightGBM efficiency")
     p_bench.set_defaults(func=_cmd_bench)

@@ -22,6 +22,7 @@ Last full run (2026-07-19): **35 passed**.
 | WebSocket stream | `test_stream.py` (parse, mock connect, no-execute) |
 | Signal eval (P1) | `test_eval.py` (WF, baselines, calibration, leakage) |
 | Portfolio backtest | `test_backtest.py` (gate + smoke) |
+| Regime | `test_regime.py` |
 | Logging (P2) | `test_logging_config.py` |
 | Advise learning policy (P3) | `test_learning_policy.py` |
 | Integration smoke | `scripts/smoke_integration.py` (manual) |

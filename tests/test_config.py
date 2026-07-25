@@ -16,6 +16,8 @@ def test_load_default_tickers_config():
     assert cfg.data.provider == "auto"
     assert cfg.universe.name == "neotrade-core-22"
     assert cfg.risk.growth_target_pct == 0.68
+    assert cfg.risk.plan_mode == "ranked"
+    assert cfg.risk.top_n == 5
     sleeves = {t.symbol: t.sleeve for t in cfg.tickers}
     assert sleeves["NVDA"] == "growth"
     assert sleeves["JNJ"] == "defensive"

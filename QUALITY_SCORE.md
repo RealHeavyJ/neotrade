@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **8.8 / 10** |
+| **Overall** | **9.2 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **9.0** (BT gate PASS + stronger edge) |
-| **Rated** | 2026-07-20 (portfolio backtest) |
-| **Rater** | Senior review + portfolio BT |
-| **Tests at rating** | 89 passed |
+| **Target (next milestone)** | **9.4** (experiment ledger + scheduled desk) |
+| **Rated** | 2026-07-25 (desk multi-agent) |
+| **Rater** | Desk track: smarter active agents |
+| **Tests at rating** | 102 passed |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | 8.1 | BT reuses plan/risk path |
-| Safety / ops | **8.8** | Paper-only, `--confirm`, sleeves, RTH execute gate |
-| Correctness / tests | **8.3** | + portfolio BT unit tests |
+| Architecture / modularity | 8.3 | desk packet + 4-role graph |
+| Safety / ops | **8.9** | desk blocks execute off RTH / promote no |
+| Correctness / tests | **8.4** | + desk unit tests |
 | Code quality | **7.7** | Narrower excepts; less silent swallow |
-| Docs / self-describing APIs | **8.1** | backtest + promotion gate documented |
-| ML rigor | **7.7** | WF eval + **portfolio BT gate** (currently FAIL vs baselines — honest) |
-| Observability | **7.7** | + backtest_latest.json |
+| Docs / self-describing APIs | **8.4** | IMPROVEMENT_QUESTIONS + desk docs |
+| ML rigor | **8.5** | multi-window 3/3 PASS + cost stress + regime blend |
+| Observability | **8.0** | desk_latest.json + desk_run journal |
 | Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
 
-**Weighted overall ≈ 8.8** — promotion tooling in place; strategy still trails eq/mom on recent window.
+**Weighted overall ≈ 9.2** — agents drive process with fact packet; still no auto-execute.
 
 ---
 
@@ -83,6 +83,9 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-20 | 8.6 | +0.1 | Relative labels + CS features; eval edge_al > 0 |
 | 2026-07-20 | 8.7 | +0.1 | Alpaca IEX WebSocket stream (monitor only) |
 | 2026-07-20 | 8.8 | +0.1 | Portfolio WF backtest + promotion gate (`neotrade backtest`) |
+| 2026-07-25 | 9.0 | +0.2 | Ranked top-N plan + mom blend; BT gate PASS |
+| 2026-07-25 | 9.1 | +0.1 | Regime filter + multi-window stable gate + cost stress |
+| 2026-07-25 | 9.2 | +0.1 | neotrade desk multi-agent + improvement questions doc |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

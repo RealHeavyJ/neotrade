@@ -3,8 +3,9 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-21 (Tue) EOD — account logged · daily ops **done**  
-**Book snapshot:** equity **$101,744** · cash **$20,208** · **10 positions** · **0 open orders** · ~+1.7% vs $100k start  
+**Last ops review:** 2026-07-25 (Sat) — **weekly** fetch/train/eval/backtest **done**  
+**Book snapshot:** equity **~$98,909** · cash **$20,208** · **10 positions** · **0 open orders**  
+**Model gate:** after strategy fix — backtest **PASS** (sig +72% vs eq +39% / mom +44%) · re-check after next weekly
 
 ---
 
@@ -47,8 +48,8 @@ source .venv/bin/activate    # must source, not execute
 | 1 | Bars if cache stale | `neotrade fetch` |
 | 2 | Signals | `neotrade signals` |
 | 3 | Dry-run plan | `neotrade paper-plan` |
-| 4 | Narrative (optional) | `neotrade advise` (+ `--rating` optional) |
-| 5 | Execute only if intentional | `neotrade paper-execute --confirm` |
+| 4 | Desk / narrative | `neotrade desk` (preferred) or `advise` |
+| 5 | Execute only if intentional + RTH + promote | `neotrade paper-execute --confirm` |
 
 **Rules:** advise-only most days · execute **RTH only** (`neotrade session`) · advise ≠ train.
 
@@ -121,25 +122,22 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-19 | 100,000 | 100,000 | 0 | 8 accepted | Pre-open weekend orders |
 | 2026-07-20 AM | ~99,954 | ~20,208 | 10 | 0 | Fills OK |
 | 2026-07-20 EOD | 100,297 | 20,208 | 10 | 0 | Day 1 live book |
-| 2026-07-21 EOD | **101,744** | 20,208 | 10 | 0 | +1.4% vs 7/20 EOD; leaders MU/MRVL/AMD/ARM; lag CRWD; no new orders |
+| 2026-07-21 EOD | **101,744** | 20,208 | 10 | 0 | +1.4% vs 7/20 EOD; leaders MU/MRVL/AMD/ARM; lag CRWD |
+| 2026-07-25 | **98,909** | 20,208 | 10 | 0 | Weekly: eval OK; BT was FAIL then **strategy fix → BT PASS** (+72% vs eq+39%/mom+44%). Ranked top-5 + mom blend. |
 | | | | | | |
 
-### Latest book detail — 2026-07-21 EOD
+### Weekly model check — 2026-07-25
 
-| Symbol | Qty | MV | Px | uPL |
-|--------|-----|-----|-----|-----|
-| AMD | 16 | 8,637 | 539.82 | +403 |
-| ARM | 29 | 8,347 | 287.83 | +369 |
-| CRWD | 39 | 7,460 | 191.29 | −456 |
-| JNJ | 31 | 7,784 | 251.10 | −79 |
-| JPM | 23 | 7,918 | 344.27 | +21 |
-| MRVL | 42 | 8,694 | 207.00 | +560 |
-| MU | 9 | 8,676 | 964.00 | +674 |
-| NOW | 77 | 7,854 | 102.00 | +125 |
-| PLTR | 59 | 7,792 | 132.07 | −77 |
-| TSM | 20 | 8,374 | 418.68 | +205 |
+| Check | Result |
+|-------|--------|
+| `eval` | mean_acc ~0.52 · edge_al **+0.022** · OK |
+| `backtest` (after fix) | signal **+71.9%** · eq **+39%** · mom **+44%** · maxDD 21.9% · sharpe 2.29 |
+| Gate | **PASS** — ranked top-N + 40/60 model·mom blend |
+| Action | Promote OK on this window; re-run BT after each weekly train |
 
-ACTIVE · bp≈$309k · blocked=False · pdt=False · open_orders=0
+### Latest book snapshot — 2026-07-25
+
+equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (execute blocked until Mon RTH)
 
 ---
 
@@ -150,8 +148,8 @@ ACTIVE · bp≈$309k · blocked=False · pdt=False · open_orders=0
 cd ~/dev/neotrade && source .venv/bin/activate
 neotrade session && neotrade quotes && neotrade account
 neotrade signals && neotrade paper-plan
-# neotrade advise
-# neotrade paper-execute --confirm   # RTH only, rare
+neotrade desk                 # preferred over advise alone
+# neotrade paper-execute --confirm   # RTH only, rare, after desk
 ```
 
 **Weekly**
@@ -162,4 +160,4 @@ neotrade signals && neotrade account && neotrade paper-plan
 neotrade bench && pytest -q
 ```
 
-Last updated: 2026-07-21 EOD
+Last updated: 2026-07-25 (weekly complete; BT gate FAIL)

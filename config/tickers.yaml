@@ -107,12 +107,16 @@ data:
   max_age_hours: 24
 
 risk:
-  max_position_pct: 0.08
+  # ranked top-N by model proba (default); use plan_mode: sides for legacy
+  plan_mode: ranked
+  top_n: 5
+  rebalance_band_pct: 0.15
+  max_position_pct: 0.18
   growth_target_pct: 0.68
   defensive_target_pct: 0.32
   max_new_positions: 8
   min_notional: 25.0
-  min_cash_pct: 0.02
-  buy_threshold: 0.55
-  sell_threshold: 0.45
+  min_cash_pct: 0.01
+  buy_threshold: 0.50
+  sell_threshold: 0.40
   paper_only: true

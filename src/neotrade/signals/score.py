@@ -113,15 +113,34 @@ def score_universe(
     *,
     buy_threshold: float = 0.55,
     sell_threshold: float = 0.45,
+    w_model: float | None = None,
+    w_mom: float | None = None,
 ) -> ScoreResult:
     """Score each symbol's latest bar with ``model``.
 
     When the model expects CS features, ranks are computed across the universe
-    on the latest available bar set (per-symbol last date aligned loosely by
-    taking each series' last feature row into one cross-section).
+    on the latest available bar set. Default blend is regime-aware (see
+    :func:`~neotrade.signals.regime.detect_regime`) unless weights are passed.
     """
     if model.booster is None:
         raise RuntimeError("model is not fitted")
+
+    if w_model is None or w_mom is None:
+        try:
+            from neotrade.signals.regime import detect_regime
+
+            reg = detect_regime(frames)
+            w_model = reg.w_model
+            w_mom = reg.w_mom
+            log.debug("%s", reg.summary_line())
+        except Exception:  # noqa: BLE001
+            w_model, w_mom = 0.40, 0.60
+    total_w = float(w_model) + float(w_mom)
+    if total_w <= 0:
+        w_model, w_mom = 0.40, 0.60
+        total_w = 1.0
+    w_model = float(w_model) / total_w
+    w_mom = float(w_mom) / total_w
 
     needs_cs = any(c in model.feature_names for c in CS_FEATURE_COLUMNS)
     rows: list[SignalRow] = []
@@ -143,9 +162,13 @@ def score_universe(
 
         for i, (_, prow) in enumerate(panel.iterrows()):
             symbol = str(prow.get("symbol", ""))
-            p = float(proba[i])
+            p_model = float(proba[i])
+            mom_r = float(prow["cs_rank_ret_20"]) if "cs_rank_ret_20" in prow.index else 0.5
+            if np.isnan(mom_r):
+                mom_r = 0.5
+            p = w_model * p_model + w_mom * mom_r
+            p = float(min(1.0, max(0.0, p)))
             as_of = str(pd.Timestamp(prow.name).date()) if hasattr(prow.name, "day") else str(prow.name)
-            # prefer feature index date from original — use panel index
             rows.append(
                 SignalRow(
                     symbol=symbol,

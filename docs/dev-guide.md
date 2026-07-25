@@ -81,20 +81,26 @@ neotrade eval --folds 4 --horizon 5 --rounds 100
 
 ```bash
 neotrade backtest
-neotrade backtest --cost-bps 5 --retrain-every 21 --train-days 120
+neotrade backtest --windows 3 --cost-stress-bps 10
+neotrade backtest --no-regime          # ablation
+neotrade backtest --require-both       # harder: beat eq AND mom
 ```
 
 Walk-forward portfolio simulation using **production** `build_trade_plan` risk rules:
 
-- Decision at close *t*, fill at **next open** (or next close)
-- One-way costs (`--cost-bps`)
-- Retrain LightGBM every N days on past data only
-- Baselines: equal-weight buy-hold, momentum top-N rebalance
-- Metrics: total return, CAGR, maxDD, Sharpe, turnover
-- **Promotion gate** (exit 0 pass / 2 fail): beat ≥1 baseline on return, maxDD ≤ 35%, Sharpe ≥ 0
+- Default plan **mode=ranked**: hold equal-weight **top-N** by blended score
+- Score blend: regime-aware model vs CS momentum (see `signals/regime.py`)
+- **Regime filter**: vol/breadth → adjust top_n, cash, blend weights
+- Rebalance every `--rebalance-every` days; retrain every `--retrain-every`
+- Decision at close *t*, fill at **next open**
+- **Multi-window stability**: default 3 overlapping windows; need ≥67% PASS
+- **Cost stress**: re-run at higher bps; must still beat ≥1 baseline
+- **Promotion** (`exit 0`): full_sample_gate **and** stable_gate PASS
 - Writes `data/learning/backtest_latest.json`
 
-Use before promoting a new `models/signal.txt`. Does not place broker orders.
+```bash
+# legacy buy/sell-side planner (config risk.plan_mode: sides)
+```
 
 ## Alpaca paper
 
@@ -166,24 +172,25 @@ on this machine with **no cloud LLM**. Market data = yfinance cache + Alpaca pap
 ### One-time Ollama setup (macOS)
 ```bash
 brew install ollama
-brew services start ollama          # starts at login
-ollama pull llama3.2:3b             # ~2GB; fits 8GB Neo
-ollama list
-curl -s http://127.0.0.1:11434/api/tags
+brew services start ollama
+ollama pull llama3.2:3b
 ```
 
 ### Run
 ```bash
-source .venv/bin/activate
-neotrade fetch && neotrade train    # if cache/model stale
-neotrade account                    # Alpaca paper
-neotrade paper-plan
-neotrade advise                     # local Ollama agents
-# neotrade advise --mock-llm        # offline stub only
+neotrade advise                 # trader + analyst
+neotrade desk                   # ops → quant → PM → critic (recommended)
+neotrade desk --mock-llm        # offline
 ```
 
-Graph: signals (+ optional Alpaca account/plan) → Trading Expert → Performance Analyst.  
-Env: `OLLAMA_HOST`, `NEOTRADE_OLLAMA_MODEL` (default `llama3.2:3b`), `NEOTRADE_OLLAMA_TEMP`.
+**Desk** loads a fact packet (session, regime, account, signals, plan, eval/BT gates)
+then runs four roles. Output: `final_action`, `promote`, `train_rec`, `experiment`,
+`human_todo`. Saves `data/learning/desk_latest.json`. **Never auto-executes.**
+
+LLMs may recommend `train|eval|backtest` experiments. They must **not** train LightGBM
+on prose. See `docs/IMPROVEMENT_QUESTIONS.md`.
+
+Env: `OLLAMA_HOST`, `NEOTRADE_OLLAMA_MODEL` (default `llama3.2:3b`).
 
 ## Dashboard
 

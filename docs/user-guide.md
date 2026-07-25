@@ -41,6 +41,18 @@ neotrade advise           # optional narrative
 
 Or: `neotrade dashboard` → http://localhost:8501
 
+## Desk (smarter agents)
+
+```bash
+neotrade eval && neotrade backtest   # refresh gates when possible
+neotrade desk                        # morning/weekly brain
+```
+
+Four local agents (ops, quant, PM, critic) read **real** account/signals/plan/gates.
+They tell you what to do next — they do **not** place orders. Follow `human_todo`.
+
+Questions that improve judgment: `docs/IMPROVEMENT_QUESTIONS.md`.
+
 ## Advise learning policy (important)
 
 1. Each `advise` run is **logged** to `data/learning/events.jsonl` as a journal.

@@ -56,14 +56,17 @@ class DataSettings(BaseModel):
 class RiskSettings(BaseModel):
     """YAML-serializable risk knobs (mirrored by :class:`RiskLimits`)."""
 
-    max_position_pct: float = Field(default=0.08, gt=0, le=0.5)
+    max_position_pct: float = Field(default=0.12, gt=0, le=0.5)
     growth_target_pct: float = Field(default=0.68, ge=0, le=1)
     defensive_target_pct: float = Field(default=0.32, ge=0, le=1)
     max_new_positions: int = Field(default=8, ge=1)
     min_notional: float = Field(default=25.0, gt=0)
-    min_cash_pct: float = Field(default=0.02, ge=0, le=0.5)
-    buy_threshold: float = Field(default=0.55, ge=0, le=1)
-    sell_threshold: float = Field(default=0.45, ge=0, le=1)
+    min_cash_pct: float = Field(default=0.01, ge=0, le=0.5)
+    buy_threshold: float = Field(default=0.50, ge=0, le=1)
+    sell_threshold: float = Field(default=0.40, ge=0, le=1)
+    plan_mode: Literal["ranked", "sides"] = "ranked"
+    top_n: int = Field(default=5, ge=1, le=30)
+    rebalance_band_pct: float = Field(default=0.15, ge=0, le=0.5)
     paper_only: bool = True
 
 

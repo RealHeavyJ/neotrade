@@ -2,6 +2,12 @@
 
 Execution is intentionally separate (:meth:`AlpacaPaperClient.submit_market_order`)
 so dry-run planning never places orders.
+
+Modes:
+  * ``ranked`` (default) — hold equal-weight **top-N by model proba**; exit names
+    that fall out of the book. Aligns portfolio construction with relative scores
+    and cuts churn vs daily buy/sell side flips.
+  * ``sides`` — legacy: sell on sell side, buy new buy-side names only (no add-on).
 """
 
 from __future__ import annotations
@@ -69,44 +75,40 @@ def _pos_map(positions: list[Position]) -> dict[str, Position]:
     return {p.symbol.upper(): p for p in positions}
 
 
-def build_trade_plan(
+def _size_buy(
+    *,
+    symbol: str,
+    notional: float,
+    prices: dict[str, float],
+) -> tuple[float | None, float | None, float]:
+    """Return qty, order_notional, effective_notional for a buy."""
+    px = prices.get(symbol)
+    qty: float | None = None
+    order_notional: float | None = round(notional, 2)
+    eff = notional
+    if px and px > 0:
+        shares = int(notional // px)
+        if shares >= 1:
+            qty = float(shares)
+            order_notional = None
+            eff = shares * px
+    return qty, order_notional, eff
+
+
+def _plan_ranked(
     *,
     signals: list[SignalRow],
     account: AccountSnapshot,
     positions: list[Position],
     cfg: TickersConfig,
     risk: RiskLimits,
-    prices: dict[str, float] | None = None,
+    prices: dict[str, float],
 ) -> TradePlan:
-    """Construct a v1 paper trade plan.
-
-    Policy:
-        * Full exit on ``sell`` signal for held names in the universe.
-        * New buys ranked by proba; skip names already held (no add-on).
-        * Size by min(max_position_pct equity, sleeve room, spendable cash).
-        * Prefer whole shares when a price is available; else notional.
-
-    Note:
-        Open / accepted orders are **not** modeled as positions. Pass only
-        filled :class:`Position` objects from the broker.
-
-    Args:
-        signals: Latest universe scores.
-        account: Equity / cash snapshot.
-        positions: Filled positions only.
-        cfg: Ticker + sleeve config.
-        risk: Validated risk limits.
-        prices: Optional symbol → last price for share sizing.
-
-    Returns:
-        :class:`TradePlan` (may contain zero intents with explanatory notes).
-    """
+    """Top-N by proba, equal-weight targets, exit names outside the book."""
     risk.validate()
     sleeves = sleeve_map(cfg)
     universe = set(sleeves)
     pos = _pos_map(positions)
-    prices = dict(prices or {})
-
     equity = max(account.equity, 0.0)
     cash = max(account.cash, 0.0)
     plan = TradePlan(equity=equity, cash=cash)
@@ -124,9 +126,150 @@ def build_trade_plan(
     plan.growth_mv = growth_mv
     plan.defensive_mv = defensive_mv
 
+    ranked = [s for s in signals if s.symbol.upper() in universe]
+    ranked.sort(key=lambda s: s.proba, reverse=True)
+    # Eligible: above soft floor (use sell_threshold as "stay interesting")
+    floor = min(risk.buy_threshold, risk.sell_threshold + 0.05)
+    eligible = [s for s in ranked if s.proba >= floor]
+    if not eligible:
+        eligible = ranked[: risk.top_n]
+    targets = eligible[: risk.top_n]
+    target_set = {s.symbol.upper() for s in targets}
+    plan.notes.append(
+        f"mode=ranked top_n={risk.top_n} targets="
+        + ",".join(f"{s.symbol}:{s.proba:.2f}" for s in targets)
+    )
+
+    # Exit names not in target book (or hard sell side below floor)
+    for symbol, p in pos.items():
+        if symbol not in universe or p.qty <= 0:
+            continue
+        sig = next((s for s in ranked if s.symbol.upper() == symbol), None)
+        drop = symbol not in target_set
+        hard_sell = sig is not None and sig.proba < risk.sell_threshold
+        if drop or hard_sell:
+            reason = (
+                f"ranked exit proba={sig.proba:.3f}"
+                if sig is not None
+                else "ranked exit (no score)"
+            )
+            if hard_sell and not drop:
+                reason = f"hard sell proba={sig.proba:.3f}"
+            plan.intents.append(
+                OrderIntent(
+                    symbol=symbol,
+                    side="sell",
+                    qty=abs(p.qty),
+                    notional=None,
+                    reason=reason,
+                    sleeve=sleeves.get(symbol, "growth"),
+                )
+            )
+            mv = max(p.market_value, 0.0)
+            if sleeves.get(symbol) == "growth":
+                growth_mv -= mv
+            else:
+                defensive_mv -= mv
+
+    # Target equal weight among survivors; deploy almost all equity
+    n_tgt = max(len(targets), 1)
+    target_w = min(risk.max_position_pct, (1.0 - risk.min_cash_pct) / n_tgt)
+    target_notional = equity * target_w
+    band = risk.rebalance_band_pct
+
+    # After sells, approximate cash available (conservative: current cash only for buys;
+    # backtest applies sells first so this matches fill order)
+    spendable = max(0.0, cash - equity * risk.min_cash_pct)
+    # Credit pending sell MV into spendable for planning denser books
+    for intent in plan.intents:
+        if intent.side == "sell" and intent.qty:
+            px = prices.get(intent.symbol) or 0.0
+            spendable += intent.qty * px
+
+    # Sort buys: underweight targets first (highest proba first among them)
+    def held_mv(sym: str) -> float:
+        p = pos.get(sym)
+        return max(p.market_value, 0.0) if p else 0.0
+
+    buy_order = sorted(targets, key=lambda s: (held_mv(s.symbol.upper()), -s.proba))
+    for sig in buy_order:
+        if spendable < risk.min_notional:
+            break
+        symbol = sig.symbol.upper()
+        current = held_mv(symbol)
+        # if we're exiting this name in same plan, treat current as 0
+        if any(i.symbol == symbol and i.side == "sell" for i in plan.intents):
+            current = 0.0
+        desired = target_notional
+        if current >= desired * (1.0 - band) and current > 0:
+            continue  # within band
+        need = desired - current
+        if need < risk.min_notional:
+            continue
+        notional = min(need, spendable, equity * risk.max_position_pct)
+        if notional < risk.min_notional:
+            continue
+        qty, order_notional, eff = _size_buy(symbol=symbol, notional=notional, prices=prices)
+        if eff < risk.min_notional and order_notional is None:
+            continue
+        plan.intents.append(
+            OrderIntent(
+                symbol=symbol,
+                side="buy",
+                qty=qty,
+                notional=order_notional,
+                reason=f"ranked top{risk.top_n} proba={sig.proba:.3f}",
+                sleeve=sleeves.get(symbol, "growth"),
+            )
+        )
+        spendable -= eff
+        if sleeves.get(symbol) == "growth":
+            growth_mv += eff
+        else:
+            defensive_mv += eff
+
+    plan.growth_mv = max(growth_mv, 0.0)
+    plan.defensive_mv = max(defensive_mv, 0.0)
+    if not plan.intents:
+        plan.notes.append("no actionable intents under ranked rules")
+    return plan
+
+
+def _plan_sides(
+    *,
+    signals: list[SignalRow],
+    account: AccountSnapshot,
+    positions: list[Position],
+    cfg: TickersConfig,
+    risk: RiskLimits,
+    prices: dict[str, float],
+) -> TradePlan:
+    """Legacy side-based policy (buy new buys, sell sells)."""
+    risk.validate()
+    sleeves = sleeve_map(cfg)
+    universe = set(sleeves)
+    pos = _pos_map(positions)
+
+    equity = max(account.equity, 0.0)
+    cash = max(account.cash, 0.0)
+    plan = TradePlan(equity=equity, cash=cash)
+    plan.notes.append("mode=sides")
+
+    growth_mv = 0.0
+    defensive_mv = 0.0
+    for symbol, p in pos.items():
+        if symbol not in sleeves:
+            plan.notes.append(f"position outside universe ignored for sleeves: {symbol}")
+            continue
+        if sleeves[symbol] == "growth":
+            growth_mv += max(p.market_value, 0.0)
+        else:
+            defensive_mv += max(p.market_value, 0.0)
+    plan.growth_mv = growth_mv
+    plan.defensive_mv = defensive_mv
+
     sig_by_sym = {s.symbol.upper(): s for s in signals if s.symbol.upper() in universe}
 
-    # --- exits ---
     for symbol, p in pos.items():
         if symbol not in universe:
             continue
@@ -149,7 +292,6 @@ def build_trade_plan(
             else:
                 defensive_mv -= max(p.market_value, 0.0)
 
-    # --- entries (cash after min cash buffer) ---
     spendable = max(0.0, cash - equity * risk.min_cash_pct)
     if spendable < risk.min_notional:
         plan.notes.append("insufficient cash after min_cash_pct buffer")
@@ -185,16 +327,7 @@ def build_trade_plan(
         if notional < risk.min_notional:
             continue
 
-        px = prices.get(symbol)
-        qty: float | None = None
-        order_notional: float | None = round(notional, 2)
-        if px and px > 0:
-            shares = int(notional // px)
-            if shares >= 1:
-                qty = float(shares)
-                order_notional = None
-                notional = shares * px
-
+        qty, order_notional, eff = _size_buy(symbol=symbol, notional=notional, prices=prices)
         plan.intents.append(
             OrderIntent(
                 symbol=symbol,
@@ -205,13 +338,13 @@ def build_trade_plan(
                 sleeve=sleeve,
             )
         )
-        spendable -= notional
+        spendable -= eff
         if sleeve == "growth":
-            growth_room -= notional
-            growth_mv += notional
+            growth_room -= eff
+            growth_mv += eff
         else:
-            defensive_room -= notional
-            defensive_mv += notional
+            defensive_room -= eff
+            defensive_mv += eff
         new_count += 1
 
     plan.growth_mv = max(growth_mv, 0.0)
@@ -219,3 +352,39 @@ def build_trade_plan(
     if not plan.intents:
         plan.notes.append("no actionable intents under risk rules")
     return plan
+
+
+def build_trade_plan(
+    *,
+    signals: list[SignalRow],
+    account: AccountSnapshot,
+    positions: list[Position],
+    cfg: TickersConfig,
+    risk: RiskLimits,
+    prices: dict[str, float] | None = None,
+) -> TradePlan:
+    """Construct a paper trade plan using ``risk.plan_mode``.
+
+    Note:
+        Open / accepted orders are **not** modeled as positions. Pass only
+        filled :class:`Position` objects from the broker.
+    """
+    prices = dict(prices or {})
+    mode = (risk.plan_mode or "ranked").strip().lower()
+    if mode == "sides":
+        return _plan_sides(
+            signals=signals,
+            account=account,
+            positions=positions,
+            cfg=cfg,
+            risk=risk,
+            prices=prices,
+        )
+    return _plan_ranked(
+        signals=signals,
+        account=account,
+        positions=positions,
+        cfg=cfg,
+        risk=risk,
+        prices=prices,
+    )

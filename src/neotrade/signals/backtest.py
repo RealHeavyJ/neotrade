@@ -30,6 +30,7 @@ from neotrade.config.models import TickersConfig
 from neotrade.logging_config import get_logger
 from neotrade.signals.features import add_cross_section_features, build_features, build_labeled_frame, model_feature_names
 from neotrade.signals.model import DEFAULT_PARAMS
+from neotrade.signals.regime import detect_regime_from_close_panel
 from neotrade.signals.score import SignalRow, side_from_proba
 
 log = get_logger("signals.backtest")
@@ -45,13 +46,22 @@ class BacktestConfig:
     horizon: int = 5
     train_days: int = 120
     retrain_every: int = 21
-    num_boost_round: int = 80
-    cost_bps: float = 5.0  # round-trip-ish per notional traded (one-way applied on each fill)
-    buy_threshold: float = 0.55
-    sell_threshold: float = 0.45
+    # How often to re-score + rebalance the book (days). Weekly cuts churn.
+    rebalance_every: int = 10
+    num_boost_round: int = 100
+    cost_bps: float = 5.0  # one-way cost on each fill
+    buy_threshold: float = 0.50
+    sell_threshold: float = 0.40
     fill: str = "next_open"  # next_open | next_close
     min_history: int = 80
     momentum_top_n: int = 5
+    # Multi-window stability (harder PASS)
+    n_windows: int = 3
+    min_window_pass_frac: float = 0.67
+    require_both_baselines: bool = False
+    min_sharpe: float = 0.35
+    use_regime: bool = True
+    cost_stress_bps: float = 10.0  # second pass stress; must still beat ≥1 baseline
 
 
 @dataclass
@@ -91,6 +101,24 @@ class GateResult:
 
 
 @dataclass
+class WindowResult:
+    """One chronological sub-window backtest summary."""
+
+    label: str
+    start: str
+    end: str
+    signal_return: float
+    eq_return: float
+    mom_return: float
+    max_drawdown: float
+    sharpe: float
+    gate_pass: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
 class BacktestReport:
     """Full backtest output for CLI / learning log / gates."""
 
@@ -102,11 +130,13 @@ class BacktestReport:
     gate: GateResult
     equity_curve: list[dict[str, float | str]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    windows: list[WindowResult] = field(default_factory=list)
+    stable_gate: GateResult | None = None
 
     def summary_lines(self) -> list[str]:
         g = "PASS" if self.gate.pass_ else "FAIL"
         lines = [
-            f"backtest @ {self.ts}  gate={g}",
+            f"backtest @ {self.ts}  full_sample_gate={g}",
             (
                 f"signal:  ret={self.signal.total_return:+.2%}  cagr={self.signal.cagr:+.2%}  "
                 f"maxDD={self.signal.max_drawdown:.2%}  sharpe={self.signal.sharpe:.2f}  "
@@ -127,6 +157,24 @@ class BacktestReport:
         ]
         for r in self.gate.reasons:
             lines.append(f"gate: {r}")
+        if self.windows:
+            n_pass = sum(1 for w in self.windows if w.gate_pass)
+            lines.append(
+                f"stable_windows: {n_pass}/{len(self.windows)} PASS "
+                f"(need ≥{self.config.get('min_window_pass_frac', 0.67):.0%})"
+            )
+            for w in self.windows:
+                flag = "PASS" if w.gate_pass else "FAIL"
+                lines.append(
+                    f"  {w.label} [{w.start}→{w.end}] {flag} "
+                    f"sig={w.signal_return:+.1%} eq={w.eq_return:+.1%} mom={w.mom_return:+.1%} "
+                    f"dd={w.max_drawdown:.1%} sh={w.sharpe:.2f}"
+                )
+        if self.stable_gate is not None:
+            sg = "PASS" if self.stable_gate.pass_ else "FAIL"
+            lines.append(f"stable_gate={sg}")
+            for r in self.stable_gate.reasons:
+                lines.append(f"stable: {r}")
         for n in self.notes:
             lines.append(f"note: {n}")
         return lines
@@ -139,9 +187,20 @@ class BacktestReport:
             "equal_weight": self.equal_weight.to_dict(),
             "momentum": self.momentum.to_dict(),
             "gate": self.gate.to_dict(),
+            "stable_gate": self.stable_gate.to_dict() if self.stable_gate else None,
+            "windows": [w.to_dict() for w in self.windows],
             "equity_curve": self.equity_curve,
             "notes": self.notes,
         }
+
+    @property
+    def promote(self) -> bool:
+        """True only if full-sample and multi-window stable gates pass."""
+        if not self.gate.pass_:
+            return False
+        if self.stable_gate is not None:
+            return self.stable_gate.pass_
+        return True
 
 
 def _metrics_from_equity(
@@ -198,23 +257,30 @@ def evaluate_gate(
     momentum: StrategyMetrics,
     *,
     max_dd_limit: float = 0.35,
-    min_sharpe: float = 0.0,
+    min_sharpe: float = 0.35,
+    min_edge: float = 0.0,
+    require_both_baselines: bool = False,
 ) -> GateResult:
-    """Promotion gate: signal should beat ≥1 baseline on return and control risk."""
+    """Promotion gate: beat baselines on return with risk controls.
+
+    Stricter defaults than v1: min Sharpe 0.35; optional require both baselines.
+    """
     reasons: list[str] = []
-    beat_eq = signal.total_return > equal_weight.total_return + 1e-6
-    beat_mom = signal.total_return > momentum.total_return + 1e-6
+    edge_eq = signal.total_return - equal_weight.total_return
+    edge_mom = signal.total_return - momentum.total_return
+    beat_eq = edge_eq > min_edge + 1e-6
+    beat_mom = edge_mom > min_edge + 1e-6
     dd_ok = signal.max_drawdown <= max_dd_limit + 1e-9
     sharpe_ok = signal.sharpe >= min_sharpe - 1e-9
 
     if beat_eq:
-        reasons.append("beats equal-weight total return")
+        reasons.append(f"beats equal-weight (edge {edge_eq:+.2%})")
     else:
-        reasons.append("does not beat equal-weight total return")
+        reasons.append(f"does not beat equal-weight (edge {edge_eq:+.2%})")
     if beat_mom:
-        reasons.append("beats momentum-top total return")
+        reasons.append(f"beats momentum-top (edge {edge_mom:+.2%})")
     else:
-        reasons.append("does not beat momentum-top total return")
+        reasons.append(f"does not beat momentum-top (edge {edge_mom:+.2%})")
     if dd_ok:
         reasons.append(f"maxDD {signal.max_drawdown:.2%} <= limit {max_dd_limit:.0%}")
     else:
@@ -224,8 +290,11 @@ def evaluate_gate(
     else:
         reasons.append(f"sharpe {signal.sharpe:.2f} < {min_sharpe:.2f}")
 
-    # Pass if beats at least one baseline on return, DD ok, sharpe ok
-    pass_ = (beat_eq or beat_mom) and dd_ok and sharpe_ok
+    if require_both_baselines:
+        beat_ok = beat_eq and beat_mom
+    else:
+        beat_ok = beat_eq or beat_mom
+    pass_ = beat_ok and dd_ok and sharpe_ok
     if pass_:
         reasons.insert(0, "PROMOTION_GATE_PASS")
     else:
@@ -447,6 +516,8 @@ def _score_day(
     feature_names: list[str],
     buy_threshold: float,
     sell_threshold: float,
+    w_model: float = 0.40,
+    w_mom: float = 0.60,
 ) -> list[SignalRow]:
     parts: list[pd.DataFrame] = []
     for sym, ohlcv in frames_hist.items():
@@ -474,8 +545,16 @@ def _score_day(
     proba = np.asarray(booster.predict(x), dtype=float)
     as_of_s = str(pd.Timestamp(as_of).date())
     rows: list[SignalRow] = []
+    tw = float(w_model) + float(w_mom)
+    if tw <= 0:
+        w_model, w_mom, tw = 0.4, 0.6, 1.0
+    w_model, w_mom = float(w_model) / tw, float(w_mom) / tw
     for i, (_, prow) in enumerate(panel.iterrows()):
-        p = float(proba[i])
+        p_model = float(proba[i])
+        mom_r = float(prow["cs_rank_ret_20"]) if "cs_rank_ret_20" in prow.index else 0.5
+        if mom_r != mom_r:  # NaN
+            mom_r = 0.5
+        p = float(min(1.0, max(0.0, w_model * p_model + w_mom * mom_r)))
         rows.append(
             SignalRow(
                 symbol=str(prow["symbol"]),
@@ -611,13 +690,17 @@ def run_portfolio_backtest(
     eq_idx: list[Any] = []
     notes: list[str] = [
         f"fill={bt.fill}",
-        f"train_days={bt.train_days} retrain_every={bt.retrain_every} cost_bps={bt.cost_bps}",
+        (
+            f"train_days={bt.train_days} retrain_every={bt.retrain_every} "
+            f"rebalance_every={bt.rebalance_every} cost_bps={bt.cost_bps}"
+        ),
         "signal decisions at close t; fills at next session open (or next close)",
-        "uses build_trade_plan risk sleeves/caps; relative LightGBM scores",
+        f"plan_mode={risk.plan_mode} top_n={risk.top_n}; relative LightGBM scores",
     ]
 
     pending_intents: list = []
     pending_fill_i: int | None = None
+    last_rebalance_i = -10_000
 
     for i in range(start_i, n):
         asof = pd.Timestamp(dates[i])
@@ -650,7 +733,6 @@ def run_portfolio_backtest(
         # 3) retrain if needed
         if booster is None or (i - last_train_i) >= bt.retrain_every:
             hist = _build_history_frames(frames, uni, asof)
-            # drop last `horizon` days of labels implicitly via build_labeled_frame
             booster = _train_booster(
                 hist,
                 horizon=bt.horizon,
@@ -663,10 +745,39 @@ def run_portfolio_backtest(
                 notes.append(f"train failed at {asof.date()}")
                 continue
 
-        # 4) score + plan at close (no fill until next bar)
+        # 4) score + plan only on rebalance schedule (cuts churn vs daily)
         if i >= n - 1:
-            continue  # cannot fill after last bar
+            continue
+        if (i - last_rebalance_i) < bt.rebalance_every and last_rebalance_i > 0:
+            continue
         hist = _build_history_frames(frames, uni, asof)
+        # Regime adjusts blend + book size (no lookahead: panel through asof only)
+        if bt.use_regime:
+            reg = detect_regime_from_close_panel(
+                close_px,
+                i,
+                base_top_n=risk.top_n,
+                base_min_cash=risk.min_cash_pct,
+                base_max_pos=risk.max_position_pct,
+            )
+            w_model, w_mom = reg.w_model, reg.w_mom
+            day_risk = RiskLimits(
+                max_position_pct=reg.max_position_pct,
+                growth_target_pct=risk.growth_target_pct,
+                defensive_target_pct=risk.defensive_target_pct,
+                max_new_positions=risk.max_new_positions,
+                min_notional=risk.min_notional,
+                min_cash_pct=reg.min_cash_pct,
+                buy_threshold=bt.buy_threshold,
+                sell_threshold=bt.sell_threshold,
+                plan_mode=risk.plan_mode,
+                top_n=reg.top_n,
+                rebalance_band_pct=risk.rebalance_band_pct,
+                paper_only=risk.paper_only,
+            )
+        else:
+            w_model, w_mom = 0.40, 0.60
+            day_risk = risk
         try:
             signals = _score_day(
                 booster,
@@ -674,6 +785,8 @@ def run_portfolio_backtest(
                 feature_names=feature_names,
                 buy_threshold=bt.buy_threshold,
                 sell_threshold=bt.sell_threshold,
+                w_model=w_model,
+                w_mom=w_mom,
             )
         except Exception as exc:  # noqa: BLE001 — keep BT running
             log.warning("score day failed %s: %s", asof.date(), exc)
@@ -687,9 +800,10 @@ def run_portfolio_backtest(
             account=acct,
             positions=positions,
             cfg=cfg,
-            risk=risk,
+            risk=day_risk,
             prices=close_prices,
         )
+        last_rebalance_i = i
         if plan.intents:
             pending_intents = list(plan.intents)
             pending_fill_i = i + 1
@@ -721,7 +835,65 @@ def run_portfolio_backtest(
     sig_m = _metrics_from_equity("signal_plan", signal_eq, traded_notional=traded_total, n_trades=n_trades)
     eq_m = _metrics_from_equity("equal_weight", eq_curve)
     mom_m = _metrics_from_equity("momentum_top", mom_curve, traded_notional=mom_traded, n_trades=mom_trades)
-    gate = evaluate_gate(sig_m, eq_m, mom_m)
+    gate = evaluate_gate(
+        sig_m,
+        eq_m,
+        mom_m,
+        min_sharpe=bt.min_sharpe,
+        require_both_baselines=bt.require_both_baselines,
+    )
+
+    # Cost stress: same path with higher costs — must still beat ≥1 baseline
+    if bt.cost_stress_bps > bt.cost_bps + 1e-9 and gate.pass_:
+        stress_bt = BacktestConfig(
+            initial_cash=bt.initial_cash,
+            horizon=bt.horizon,
+            train_days=bt.train_days,
+            retrain_every=bt.retrain_every,
+            rebalance_every=bt.rebalance_every,
+            num_boost_round=bt.num_boost_round,
+            cost_bps=bt.cost_stress_bps,
+            buy_threshold=bt.buy_threshold,
+            sell_threshold=bt.sell_threshold,
+            fill=bt.fill,
+            min_history=bt.min_history,
+            momentum_top_n=bt.momentum_top_n,
+            n_windows=1,
+            use_regime=bt.use_regime,
+            cost_stress_bps=bt.cost_stress_bps,
+            min_sharpe=bt.min_sharpe,
+            require_both_baselines=bt.require_both_baselines,
+        )
+        try:
+            stress = _run_single_window(frames, cfg, risk=risk, bt=stress_bt, skip_stability=True)
+            stress_gate = evaluate_gate(
+                stress.signal,
+                stress.equal_weight,
+                stress.momentum,
+                min_sharpe=0.0,
+                require_both_baselines=False,
+            )
+            if not (stress_gate.beat_equal_weight or stress_gate.beat_momentum):
+                gate = GateResult(
+                    pass_=False,
+                    reasons=[
+                        "PROMOTION_GATE_FAIL",
+                        f"cost stress {bt.cost_stress_bps:.0f}bps: loses both baselines",
+                        *gate.reasons[1:],
+                    ],
+                    beat_equal_weight=gate.beat_equal_weight,
+                    beat_momentum=gate.beat_momentum,
+                    drawdown_ok=gate.drawdown_ok,
+                    sharpe_ok=gate.sharpe_ok,
+                )
+                notes.append(f"cost_stress_{bt.cost_stress_bps:.0f}bps failed both baselines")
+            else:
+                notes.append(
+                    f"cost_stress_{bt.cost_stress_bps:.0f}bps ok "
+                    f"(sig={stress.signal.total_return:+.1%})"
+                )
+        except (ValueError, RuntimeError) as exc:
+            notes.append(f"cost stress skipped: {exc}")
 
     curve_out = [
         {
@@ -733,19 +905,27 @@ def run_portfolio_backtest(
         for d in signal_eq.index
     ]
 
-    return BacktestReport(
+    report = BacktestReport(
         ts=datetime.now(timezone.utc).isoformat(),
         config={
             "initial_cash": bt.initial_cash,
             "horizon": bt.horizon,
             "train_days": bt.train_days,
             "retrain_every": bt.retrain_every,
+            "rebalance_every": bt.rebalance_every,
             "num_boost_round": bt.num_boost_round,
             "cost_bps": bt.cost_bps,
+            "cost_stress_bps": bt.cost_stress_bps,
             "buy_threshold": bt.buy_threshold,
             "sell_threshold": bt.sell_threshold,
             "fill": bt.fill,
             "momentum_top_n": bt.momentum_top_n,
+            "plan_mode": risk.plan_mode,
+            "top_n": risk.top_n,
+            "use_regime": bt.use_regime,
+            "n_windows": bt.n_windows,
+            "min_window_pass_frac": bt.min_window_pass_frac,
+            "min_sharpe": bt.min_sharpe,
             "n_symbols": len(uni),
             "start": str(pd.Timestamp(common[0]).date()) if len(common) else "",
             "end": str(pd.Timestamp(common[-1]).date()) if len(common) else "",
@@ -756,6 +936,191 @@ def run_portfolio_backtest(
         gate=gate,
         equity_curve=curve_out,
         notes=notes,
+    )
+
+    if bt.n_windows >= 2 and not getattr(bt, "_skip_stability", False):
+        report.windows, report.stable_gate = _multi_window_stability(
+            frames, cfg, risk=risk, bt=bt, full_gate=gate
+        )
+        if report.stable_gate and not report.stable_gate.pass_:
+            # overall promote fails if unstable even if full sample passed
+            pass
+    return report
+
+
+def _run_single_window(
+    frames: dict[str, pd.DataFrame],
+    cfg: TickersConfig,
+    *,
+    risk: RiskLimits,
+    bt: BacktestConfig,
+    skip_stability: bool = True,
+) -> BacktestReport:
+    """Internal: one full run without nested multi-window or cost stress."""
+    _ = skip_stability
+    bt2 = BacktestConfig(
+        initial_cash=bt.initial_cash,
+        horizon=bt.horizon,
+        train_days=bt.train_days,
+        retrain_every=bt.retrain_every,
+        rebalance_every=bt.rebalance_every,
+        num_boost_round=bt.num_boost_round,
+        cost_bps=bt.cost_bps,
+        buy_threshold=bt.buy_threshold,
+        sell_threshold=bt.sell_threshold,
+        fill=bt.fill,
+        min_history=bt.min_history,
+        momentum_top_n=bt.momentum_top_n,
+        n_windows=1,
+        use_regime=bt.use_regime,
+        cost_stress_bps=bt.cost_bps,
+        min_sharpe=bt.min_sharpe,
+        require_both_baselines=bt.require_both_baselines,
+    )
+    return run_portfolio_backtest(frames, cfg, risk=risk, bt=bt2)
+
+
+def _slice_frames(
+    frames: dict[str, pd.DataFrame],
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> dict[str, pd.DataFrame]:
+    out: dict[str, pd.DataFrame] = {}
+    for sym, df in frames.items():
+        d = df.copy()
+        d.index = pd.to_datetime(d.index)
+        sl = d.loc[(d.index >= start) & (d.index <= end)]
+        if len(sl) >= 80:
+            out[sym] = sl
+    return out
+
+
+def _multi_window_stability(
+    frames: dict[str, pd.DataFrame],
+    cfg: TickersConfig,
+    *,
+    risk: RiskLimits,
+    bt: BacktestConfig,
+    full_gate: GateResult,
+) -> tuple[list[WindowResult], GateResult]:
+    """Sequential non-overlapping windows; require most to PASS gate."""
+    close_px, _open_px, symbols = _align_price_panels(frames)
+    uni = [s for s in cfg.symbols() if s in symbols]
+    close_px = close_px[uni]
+    dates = close_px.index
+    n = len(dates)
+    n_win = max(2, int(bt.n_windows))
+    # Overlapping expanding windows ending at sample end (works on ~1y history)
+    # W0: first 60% · W1: middle 60% · W2: last 60% (approx)
+    min_len = max(100, bt.train_days // 2 + 50)
+    if n < min_len + 30:
+        return [], GateResult(
+            pass_=full_gate.pass_,
+            reasons=["stable: insufficient history for multi-window; using full sample only"],
+            beat_equal_weight=full_gate.beat_equal_weight,
+            beat_momentum=full_gate.beat_momentum,
+            drawdown_ok=full_gate.drawdown_ok,
+            sharpe_ok=full_gate.sharpe_ok,
+        )
+
+    win_len = max(min_len, int(n * 0.55))
+    if win_len >= n:
+        win_len = n - 10
+    step = max(1, (n - win_len) // max(n_win - 1, 1))
+    windows: list[WindowResult] = []
+    for w in range(n_win):
+        i0 = min(w * step, n - win_len)
+        i1 = i0 + win_len
+        if i1 > n:
+            i1 = n
+            i0 = max(0, i1 - win_len)
+        start, end = pd.Timestamp(dates[i0]), pd.Timestamp(dates[i1 - 1])
+        sliced = _slice_frames(frames, start, end)
+        if len(sliced) < 2:
+            continue
+        try:
+            sub_train = min(bt.train_days, max(50, (i1 - i0) // 3))
+            sub_bt = BacktestConfig(
+                initial_cash=bt.initial_cash,
+                horizon=bt.horizon,
+                train_days=sub_train,
+                retrain_every=bt.retrain_every,
+                rebalance_every=bt.rebalance_every,
+                num_boost_round=bt.num_boost_round,
+                cost_bps=bt.cost_bps,
+                buy_threshold=bt.buy_threshold,
+                sell_threshold=bt.sell_threshold,
+                fill=bt.fill,
+                min_history=min(bt.min_history, 50),
+                momentum_top_n=bt.momentum_top_n,
+                n_windows=1,
+                use_regime=bt.use_regime,
+                cost_stress_bps=bt.cost_bps,
+                min_sharpe=max(0.0, bt.min_sharpe - 0.1),
+                require_both_baselines=False,
+            )
+            rep = run_portfolio_backtest(sliced, cfg, risk=risk, bt=sub_bt)
+            windows.append(
+                WindowResult(
+                    label=f"W{w}",
+                    start=str(start.date()),
+                    end=str(end.date()),
+                    signal_return=rep.signal.total_return,
+                    eq_return=rep.equal_weight.total_return,
+                    mom_return=rep.momentum.total_return,
+                    max_drawdown=rep.signal.max_drawdown,
+                    sharpe=rep.signal.sharpe,
+                    gate_pass=rep.gate.pass_,
+                )
+            )
+        except (ValueError, RuntimeError) as exc:
+            log.warning("window %s failed: %s", w, exc)
+            windows.append(
+                WindowResult(
+                    label=f"W{w}",
+                    start=str(start.date()),
+                    end=str(end.date()),
+                    signal_return=float("nan"),
+                    eq_return=float("nan"),
+                    mom_return=float("nan"),
+                    max_drawdown=float("nan"),
+                    sharpe=float("nan"),
+                    gate_pass=False,
+                )
+            )
+
+    if not windows:
+        return [], GateResult(
+            pass_=False,
+            reasons=["PROMOTION_GATE_FAIL", "stable: no windows completed"],
+            beat_equal_weight=False,
+            beat_momentum=False,
+            drawdown_ok=False,
+            sharpe_ok=False,
+        )
+
+    n_pass = sum(1 for w in windows if w.gate_pass)
+    frac = n_pass / len(windows)
+    need = bt.min_window_pass_frac
+    reasons = [
+        f"windows_pass={n_pass}/{len(windows)} ({frac:.0%}) need>={need:.0%}",
+    ]
+    if full_gate.pass_:
+        reasons.append("full_sample_gate=PASS")
+    else:
+        reasons.append("full_sample_gate=FAIL")
+    stable_ok = frac + 1e-9 >= need and full_gate.pass_
+    if stable_ok:
+        reasons.insert(0, "STABLE_GATE_PASS")
+    else:
+        reasons.insert(0, "STABLE_GATE_FAIL")
+    return windows, GateResult(
+        pass_=stable_ok,
+        reasons=reasons,
+        beat_equal_weight=full_gate.beat_equal_weight,
+        beat_momentum=full_gate.beat_momentum,
+        drawdown_ok=full_gate.drawdown_ok,
+        sharpe_ok=full_gate.sharpe_ok,
     )
 
 

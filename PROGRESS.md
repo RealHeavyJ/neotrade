@@ -43,8 +43,22 @@ neotrade advise | monitor | stream | bench | dashboard
 ```
 
 ### Next session default
-1. Improve signals/plan until `neotrade backtest` **gate=PASS**  
-2. Or ops: `DAILY_TODO.md` daily/weekly loop  
+1. Ops Mon: `DAILY_TODO` + `neotrade desk`  
+2. Experiment ledger (track desk EXPERIMENT outcomes)  
+3. Re-run `backtest` after weekly train  
+
+### 2026-07-25 desk (smarter agents)
+- `neotrade desk`: ops → quant → PM → critic on fact packet  
+- Reads session/regime/account/signals/plan/eval/BT promote gates  
+- Saves `desk_latest.json`; learning log `desk_run` (not LightGBM)  
+- `docs/IMPROVEMENT_QUESTIONS.md` — questions + safe “LLM improves process” loop  
+
+### 2026-07-25 model track (smarter promote)
+- **Regime** (`signals/regime.py`): vol/breadth → blend, top_n, cash  
+- **Multi-window** BT: 3 overlapping windows; need ≥67% PASS  
+- **Cost stress** 10 bps; min Sharpe 0.35  
+- Promote = full_sample **and** stable_gate  
+- Live: promote=True · full +43.98% vs eq +39% · windows **3/3 PASS** · score **9.1**
 
 ### Promote model only if
 `neotrade eval` sane **and** `neotrade backtest` prints `gate=PASS`.

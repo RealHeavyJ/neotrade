@@ -17,12 +17,14 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Broker | Alpaca **paper** only |
 | Data | Alpaca MD REST (`iex`) + yfinance fallback |
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
-| Risk | 8% max name · 68/32 sleeves · execute needs `--confirm` |
+| Risk | ranked top-5 · max name 18% · execute needs `--confirm` |
+| Score blend | Regime-aware model/mom blend (default ~40/60) |
+| Promote | `backtest` exit 0 = full_sample + multi-window stable gates |
 | Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
 | Monitoring | REST `monitor` + WS `stream` (IEX); quotes anytime free MD allows; execute RTH-only |
 
 ## Quality score (agents)
-- Canonical: **`QUALITY_SCORE.md`** — overall **8.8/10**, floor **7.6**, next target **9.0**
+- Canonical: **`QUALITY_SCORE.md`** — overall **9.1/10**, floor **7.6**, next target **9.3**
 - Policy: code changes must **hold or raise** score; never regress below floor
 - Rules for all agents: **`AGENTS.md`**
 - Gap backlog: ML edge (`eval`), optional WS — `TASKS.md`

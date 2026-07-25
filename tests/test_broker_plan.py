@@ -38,9 +38,10 @@ def _account(equity: float = 100_000, cash: float = 100_000) -> AccountSnapshot:
     )
 
 
-def test_plan_buys_respect_sleeves_and_caps():
+def test_plan_ranked_buys_top_n():
     cfg = _cfg()
     risk = default_risk_limits(cfg)
+    assert risk.plan_mode == "ranked"
     signals = [
         SignalRow("NVDA", 0.70, "buy", "2026-07-17"),
         SignalRow("AMD", 0.66, "buy", "2026-07-17"),
@@ -53,19 +54,57 @@ def test_plan_buys_respect_sleeves_and_caps():
         positions=[],
         cfg=cfg,
         risk=risk,
-        prices={"NVDA": 100.0, "AMD": 50.0, "JNJ": 150.0},
+        prices={"NVDA": 100.0, "AMD": 50.0, "JNJ": 150.0, "KO": 60.0},
     )
     buys = [i for i in plan.intents if i.side == "buy"]
     assert len(buys) >= 2
     assert all(i.side == "buy" for i in buys)
-    # notional or qty present
     for i in buys:
         assert (i.qty is not None) ^ (i.notional is not None)
+    assert any("mode=ranked" in n for n in plan.notes)
 
 
-def test_plan_sells_on_sell_signal():
+def test_plan_ranked_exits_name_outside_top_n():
     cfg = _cfg()
     risk = default_risk_limits(cfg)
+    positions = [
+        Position(
+            symbol="KO",
+            qty=10,
+            market_value=600,
+            current_price=60,
+            avg_entry_price=55,
+            unrealized_pl=50,
+            side="long",
+        )
+    ]
+    signals = [
+        SignalRow("NVDA", 0.80, "buy", "2026-07-17"),
+        SignalRow("AMD", 0.75, "buy", "2026-07-17"),
+        SignalRow("JNJ", 0.70, "buy", "2026-07-17"),
+        SignalRow("KO", 0.20, "sell", "2026-07-17"),
+    ]
+    plan = build_trade_plan(
+        signals=signals,
+        account=_account(equity=10_000, cash=1000),
+        positions=positions,
+        cfg=cfg,
+        risk=risk,
+        prices={"NVDA": 100.0, "AMD": 50.0, "JNJ": 150.0, "KO": 60.0},
+    )
+    assert any(i.side == "sell" and i.symbol == "KO" for i in plan.intents)
+
+
+def test_plan_sides_sells_on_sell_signal():
+    cfg = _cfg()
+    risk = RiskLimits(
+        max_position_pct=0.10,
+        growth_target_pct=0.68,
+        defensive_target_pct=0.32,
+        plan_mode="sides",
+        buy_threshold=0.55,
+        sell_threshold=0.45,
+    )
     positions = [
         Position(
             symbol="AMD",
