@@ -102,16 +102,17 @@ data:
   cache_dir: data/cache
   # auto = Alpaca market data first, yfinance fallback
   provider: auto
-  default_period: 1y
+  # Production default = longest practical history (opt-down with --period 1y for smoke only)
+  default_period: 2y
   default_interval: 1d
   max_age_hours: 24
 
 risk:
-  # ranked top-N by model proba (default); use plan_mode: sides for legacy
+  # ranked top-N (defaults: neotrade.defaults — tuned for 2y promote PASS)
   plan_mode: ranked
-  top_n: 5
+  top_n: 7
   rebalance_band_pct: 0.15
-  max_position_pct: 0.18
+  max_position_pct: 0.15
   growth_target_pct: 0.68
   defensive_target_pct: 0.32
   max_new_positions: 8

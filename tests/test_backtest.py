@@ -11,9 +11,12 @@ from neotrade.config.models import RiskSettings, Ticker, TickersConfig
 from neotrade.signals.backtest import (
     BacktestConfig,
     StrategyMetrics,
+    apply_slippage,
     evaluate_gate,
     run_portfolio_backtest,
+    _apply_intents,
 )
+from neotrade.broker.plan import OrderIntent
 
 
 def _synth(n: int = 200, seed: int = 0, drift: float = 0.0004) -> pd.DataFrame:
@@ -186,3 +189,44 @@ def test_backtest_requires_enough_history():
             cfg,
             bt=BacktestConfig(train_days=120, min_history=80),
         )
+
+
+def test_apply_slippage_adverse():
+    assert apply_slippage(100.0, side="buy", slip_bps=10) == pytest.approx(100.1)
+    assert apply_slippage(100.0, side="sell", slip_bps=10) == pytest.approx(99.9)
+
+
+def test_apply_intents_slippage_worsens_cash_vs_mid():
+    buy = OrderIntent(
+        symbol="AAA",
+        side="buy",
+        qty=10.0,
+        notional=None,
+        reason="t",
+        sleeve="growth",
+    )
+    qty0: dict[str, float] = {}
+    cash0 = 10_000.0
+    # no slip
+    q1, c1, t1, n1 = _apply_intents(
+        qty=qty0,
+        cash=cash0,
+        intents=[buy],
+        fill_prices={"AAA": 100.0},
+        cost_bps=0.0,
+        slip_bps=0.0,
+    )
+    # with slip
+    q2, c2, t2, n2 = _apply_intents(
+        qty={},
+        cash=cash0,
+        intents=[buy],
+        fill_prices={"AAA": 100.0},
+        cost_bps=0.0,
+        slip_bps=50.0,  # 0.5%
+    )
+    assert n1 == n2 == 1
+    assert q1["AAA"] == pytest.approx(10.0)
+    assert q2["AAA"] == pytest.approx(10.0)
+    assert c2 < c1  # paid more with slippage
+    assert t2 > t1

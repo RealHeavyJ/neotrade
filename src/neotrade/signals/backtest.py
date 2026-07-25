@@ -46,28 +46,57 @@ TRADING_DAYS_PER_YEAR = 252
 
 @dataclass
 class BacktestConfig:
-    """Knobs for portfolio walk-forward backtest."""
+    """Knobs for portfolio walk-forward backtest.
+
+    Defaults come from :mod:`neotrade.defaults` (strict promote path).
+    """
 
     initial_cash: float = 100_000.0
     horizon: int = 5
-    train_days: int = 120
+    train_days: int = 180
     retrain_every: int = 21
-    # How often to re-score + rebalance the book (days). Weekly cuts churn.
-    rebalance_every: int = 10
+    rebalance_every: int = 14
     num_boost_round: int = 100
-    cost_bps: float = 5.0  # one-way cost on each fill
+    cost_bps: float = 5.0
+    slip_bps: float = 5.0
     buy_threshold: float = 0.50
     sell_threshold: float = 0.40
-    fill: str = "next_open"  # next_open | next_close
+    fill: str = "next_open"
     min_history: int = 80
-    momentum_top_n: int = 5
-    # Multi-window stability (harder PASS)
+    momentum_top_n: int = 7
     n_windows: int = 3
     min_window_pass_frac: float = 0.67
     require_both_baselines: bool = False
     min_sharpe: float = 0.35
     use_regime: bool = True
-    cost_stress_bps: float = 10.0  # second pass stress; must still beat ≥1 baseline
+    cost_stress_bps: float = 10.0
+    slip_stress_bps: float = 15.0
+
+    @classmethod
+    def production(cls) -> BacktestConfig:
+        """Strict defaults used by bare ``neotrade backtest``."""
+        from neotrade import defaults as d
+
+        return cls(
+            initial_cash=d.BT_CASH,
+            horizon=d.TRAIN_HORIZON,
+            train_days=d.BT_TRAIN_DAYS,
+            retrain_every=d.BT_RETRAIN_EVERY,
+            rebalance_every=d.BT_REBALANCE_EVERY,
+            num_boost_round=d.BT_ROUNDS,
+            cost_bps=d.BT_COST_BPS,
+            slip_bps=d.BT_SLIP_BPS,
+            buy_threshold=d.RISK_BUY_THRESHOLD,
+            sell_threshold=d.RISK_SELL_THRESHOLD,
+            fill=d.BT_FILL,
+            n_windows=d.BT_WINDOWS,
+            min_window_pass_frac=d.BT_MIN_WINDOW_PASS,
+            require_both_baselines=d.BT_REQUIRE_BOTH_BASELINES,
+            min_sharpe=d.BT_MIN_SHARPE,
+            use_regime=d.BT_USE_REGIME,
+            cost_stress_bps=d.BT_COST_STRESS_BPS,
+            slip_stress_bps=d.BT_SLIP_STRESS_BPS,
+        )
 
 
 @dataclass
@@ -379,6 +408,19 @@ def _account(equity: float, cash: float) -> AccountSnapshot:
     )
 
 
+def apply_slippage(price: float, *, side: str, slip_bps: float) -> float:
+    """Adverse mid→fill move: buys pay up, sells receive down."""
+    if price <= 0:
+        return price
+    slip = max(0.0, float(slip_bps)) / 10_000.0
+    side_l = side.lower()
+    if side_l == "buy":
+        return price * (1.0 + slip)
+    if side_l == "sell":
+        return price * (1.0 - slip)
+    return price
+
+
 def _apply_intents(
     *,
     qty: dict[str, float],
@@ -386,8 +428,13 @@ def _apply_intents(
     intents: list,
     fill_prices: dict[str, float],
     cost_bps: float,
+    slip_bps: float = 0.0,
 ) -> tuple[dict[str, float], float, float, int]:
-    """Execute intents at fill prices; return qty, cash, traded_notional, n_trades."""
+    """Execute intents at slipped fill prices + fees.
+
+    Returns:
+        qty, cash, traded_notional (at slipped prices), n_trades
+    """
     traded = 0.0
     n_trades = 0
     fee_rate = cost_bps / 10_000.0
@@ -398,9 +445,10 @@ def _apply_intents(
         if intent.side != "sell":
             continue
         sym = intent.symbol.upper()
-        px = fill_prices.get(sym)
-        if px is None or px <= 0:
+        mid = fill_prices.get(sym)
+        if mid is None or mid <= 0:
             continue
+        px = apply_slippage(mid, side="sell", slip_bps=slip_bps)
         q = abs(float(intent.qty or 0.0))
         held = qty.get(sym, 0.0)
         q = min(q, held)
@@ -419,25 +467,28 @@ def _apply_intents(
         if intent.side != "buy":
             continue
         sym = intent.symbol.upper()
-        px = fill_prices.get(sym)
-        if px is None or px <= 0:
+        mid = fill_prices.get(sym)
+        if mid is None or mid <= 0:
             continue
+        px = apply_slippage(mid, side="buy", slip_bps=slip_bps)
         if intent.qty is not None and intent.qty > 0:
             q = float(intent.qty)
             notional = q * px
         elif intent.notional is not None and intent.notional > 0:
-            notional = float(intent.notional)
-            q = notional / px
+            # notional is budget at mid; reprice shares at slipped px
+            budget = float(intent.notional)
+            q = budget / px
+            notional = q * px
         else:
             continue
         fee = notional * fee_rate
         total = notional + fee
         if total > cash + 1e-6:
-            # scale down to cash
             if cash <= fee + 1e-6:
                 continue
-            notional = (cash / (1.0 + fee_rate)) if fee_rate > 0 else cash
-            q = notional / px
+            # scale quantity to available cash at slipped price + fee
+            q = cash / (px * (1.0 + fee_rate)) if fee_rate > 0 else cash / px
+            notional = q * px
             fee = notional * fee_rate
             total = notional + fee
         if q <= 1e-12 or total > cash + 1e-6:
@@ -578,20 +629,38 @@ def _equal_weight_curve(
     *,
     initial_cash: float,
     start_i: int,
+    cost_bps: float = 0.0,
+    slip_bps: float = 0.0,
 ) -> pd.Series:
-    """Buy equal weight at start_i close, hold to end (no rebalance)."""
+    """Buy equal weight at start_i, hold to end (same entry friction as signal)."""
     dates = close_px.index
     row0 = close_px.iloc[start_i]
     valid = row0.dropna()
     if valid.empty:
         return pd.Series(dtype=float)
-    w = initial_cash / len(valid)
-    shares = {sym: w / float(px) for sym, px in valid.items() if float(px) > 0}
+    fee_rate = cost_bps / 10_000.0
+    # entry: pay adverse slip + fee once (buy-and-hold)
+    n = len(valid)
+    budget = initial_cash / n
+    shares: dict[str, float] = {}
+    cash_left = initial_cash
+    for sym, px in valid.items():
+        mid = float(px)
+        if mid <= 0:
+            continue
+        fill = apply_slippage(mid, side="buy", slip_bps=slip_bps)
+        notional = budget / (1.0 + fee_rate)
+        fee = notional * fee_rate
+        spend = notional + fee
+        if spend > cash_left + 1e-9:
+            continue
+        shares[sym] = notional / fill
+        cash_left -= spend
     eq = []
     idx = []
     for i in range(start_i, len(dates)):
         px = close_px.iloc[i]
-        total = 0.0
+        total = cash_left
         for sym, q in shares.items():
             p = px.get(sym)
             if pd.notna(p):
@@ -609,8 +678,9 @@ def _momentum_top_curve(
     top_n: int,
     rebalance_every: int,
     cost_bps: float,
+    slip_bps: float = 0.0,
 ) -> tuple[pd.Series, float, int]:
-    """Rebalance every N days into top-N by 20d return."""
+    """Rebalance every N days into top-N by 20d return (same friction as signal)."""
     dates = close_px.index
     cash = initial_cash
     qty: dict[str, float] = {}
@@ -627,11 +697,12 @@ def _momentum_top_curve(
             past = close_px.iloc[max(0, i - 20) : i + 1]
             rets = past.pct_change(20).iloc[-1].dropna().sort_values(ascending=False)
             picks = list(rets.head(top_n).index)
-            # liquidate all
+            # liquidate all at slipped sell
             for sym, q in list(qty.items()):
-                p = prices.get(sym)
-                if p and q > 0:
-                    notional = q * p
+                mid = prices.get(sym)
+                if mid and q > 0:
+                    fill = apply_slippage(mid, side="sell", slip_bps=slip_bps)
+                    notional = q * fill
                     cash += notional * (1.0 - fee_rate)
                     traded_total += notional
                     n_trades += 1
@@ -639,16 +710,16 @@ def _momentum_top_curve(
             if picks:
                 per = cash / len(picks)
                 for sym in picks:
-                    p = prices.get(sym)
-                    if not p or p <= 0 or per <= 0:
+                    mid = prices.get(sym)
+                    if not mid or mid <= 0 or per <= 0:
                         continue
+                    fill = apply_slippage(mid, side="buy", slip_bps=slip_bps)
                     notional = per / (1.0 + fee_rate)
-                    q = notional / p
                     fee = notional * fee_rate
                     if notional + fee > cash:
                         continue
                     cash -= notional + fee
-                    qty[sym] = q
+                    qty[sym] = notional / fill
                     traded_total += notional
                     n_trades += 1
         eq_vals.append(_mark_equity(qty, cash, prices))
@@ -698,9 +769,10 @@ def run_portfolio_backtest(
         f"fill={bt.fill}",
         (
             f"train_days={bt.train_days} retrain_every={bt.retrain_every} "
-            f"rebalance_every={bt.rebalance_every} cost_bps={bt.cost_bps}"
+            f"rebalance_every={bt.rebalance_every} "
+            f"cost_bps={bt.cost_bps} slip_bps={bt.slip_bps}"
         ),
-        "signal decisions at close t; fills at next session open (or next close)",
+        "signal decisions at close t; fills next open/close with adverse slippage + fees",
         f"plan_mode={risk.plan_mode} top_n={risk.top_n}; relative LightGBM scores",
     ]
 
@@ -723,6 +795,7 @@ def run_portfolio_backtest(
                 intents=pending_intents,
                 fill_prices=fill_prices,
                 cost_bps=bt.cost_bps,
+                slip_bps=bt.slip_bps,
             )
             traded_total += traded
             n_trades += nt
@@ -818,7 +891,14 @@ def run_portfolio_backtest(
     if signal_eq.empty:
         raise RuntimeError("backtest produced empty equity curve")
 
-    eq_curve = _equal_weight_curve(close_px, initial_cash=bt.initial_cash, start_i=start_i)
+    # Same cost+slip as signal so promote is a fair horse race
+    eq_curve = _equal_weight_curve(
+        close_px,
+        initial_cash=bt.initial_cash,
+        start_i=start_i,
+        cost_bps=bt.cost_bps,
+        slip_bps=bt.slip_bps,
+    )
     mom_curve, mom_traded, mom_trades = _momentum_top_curve(
         close_px,
         initial_cash=bt.initial_cash,
@@ -826,6 +906,7 @@ def run_portfolio_backtest(
         top_n=bt.momentum_top_n,
         rebalance_every=bt.retrain_every,
         cost_bps=bt.cost_bps,
+        slip_bps=bt.slip_bps,
     )
 
     # align lengths for fair comparison
@@ -849,8 +930,10 @@ def run_portfolio_backtest(
         require_both_baselines=bt.require_both_baselines,
     )
 
-    # Cost stress: same path with higher costs — must still beat ≥1 baseline
-    if bt.cost_stress_bps > bt.cost_bps + 1e-9 and gate.pass_:
+    # Cost + slip stress: same path with harsher frictions — must still beat ≥1 baseline
+    stress_cost = max(bt.cost_stress_bps, bt.cost_bps)
+    stress_slip = max(bt.slip_stress_bps, bt.slip_bps)
+    if (stress_cost > bt.cost_bps + 1e-9 or stress_slip > bt.slip_bps + 1e-9) and gate.pass_:
         stress_bt = BacktestConfig(
             initial_cash=bt.initial_cash,
             horizon=bt.horizon,
@@ -858,7 +941,8 @@ def run_portfolio_backtest(
             retrain_every=bt.retrain_every,
             rebalance_every=bt.rebalance_every,
             num_boost_round=bt.num_boost_round,
-            cost_bps=bt.cost_stress_bps,
+            cost_bps=stress_cost,
+            slip_bps=stress_slip,
             buy_threshold=bt.buy_threshold,
             sell_threshold=bt.sell_threshold,
             fill=bt.fill,
@@ -866,7 +950,8 @@ def run_portfolio_backtest(
             momentum_top_n=bt.momentum_top_n,
             n_windows=1,
             use_regime=bt.use_regime,
-            cost_stress_bps=bt.cost_stress_bps,
+            cost_stress_bps=stress_cost,
+            slip_stress_bps=stress_slip,
             min_sharpe=bt.min_sharpe,
             require_both_baselines=bt.require_both_baselines,
         )
@@ -884,7 +969,10 @@ def run_portfolio_backtest(
                     pass_=False,
                     reasons=[
                         "PROMOTION_GATE_FAIL",
-                        f"cost stress {bt.cost_stress_bps:.0f}bps: loses both baselines",
+                        (
+                            f"friction stress cost={stress_cost:.0f}bps "
+                            f"slip={stress_slip:.0f}bps: loses both baselines"
+                        ),
                         *gate.reasons[1:],
                     ],
                     beat_equal_weight=gate.beat_equal_weight,
@@ -892,14 +980,16 @@ def run_portfolio_backtest(
                     drawdown_ok=gate.drawdown_ok,
                     sharpe_ok=gate.sharpe_ok,
                 )
-                notes.append(f"cost_stress_{bt.cost_stress_bps:.0f}bps failed both baselines")
+                notes.append(
+                    f"friction_stress cost={stress_cost:.0f} slip={stress_slip:.0f} failed baselines"
+                )
             else:
                 notes.append(
-                    f"cost_stress_{bt.cost_stress_bps:.0f}bps ok "
+                    f"friction_stress cost={stress_cost:.0f} slip={stress_slip:.0f} ok "
                     f"(sig={stress.signal.total_return:+.1%})"
                 )
         except (ValueError, RuntimeError) as exc:
-            notes.append(f"cost stress skipped: {exc}")
+            notes.append(f"friction stress skipped: {exc}")
 
     curve_out = [
         {
@@ -921,7 +1011,9 @@ def run_portfolio_backtest(
             "rebalance_every": bt.rebalance_every,
             "num_boost_round": bt.num_boost_round,
             "cost_bps": bt.cost_bps,
+            "slip_bps": bt.slip_bps,
             "cost_stress_bps": bt.cost_stress_bps,
+            "slip_stress_bps": bt.slip_stress_bps,
             "buy_threshold": bt.buy_threshold,
             "sell_threshold": bt.sell_threshold,
             "fill": bt.fill,
@@ -972,6 +1064,7 @@ def _run_single_window(
         rebalance_every=bt.rebalance_every,
         num_boost_round=bt.num_boost_round,
         cost_bps=bt.cost_bps,
+        slip_bps=bt.slip_bps,
         buy_threshold=bt.buy_threshold,
         sell_threshold=bt.sell_threshold,
         fill=bt.fill,
@@ -980,6 +1073,7 @@ def _run_single_window(
         n_windows=1,
         use_regime=bt.use_regime,
         cost_stress_bps=bt.cost_bps,
+        slip_stress_bps=bt.slip_bps,
         min_sharpe=bt.min_sharpe,
         require_both_baselines=bt.require_both_baselines,
     )
@@ -1054,6 +1148,7 @@ def _multi_window_stability(
                 rebalance_every=bt.rebalance_every,
                 num_boost_round=bt.num_boost_round,
                 cost_bps=bt.cost_bps,
+                slip_bps=bt.slip_bps,
                 buy_threshold=bt.buy_threshold,
                 sell_threshold=bt.sell_threshold,
                 fill=bt.fill,
@@ -1062,6 +1157,7 @@ def _multi_window_stability(
                 n_windows=1,
                 use_regime=bt.use_regime,
                 cost_stress_bps=bt.cost_bps,
+                slip_stress_bps=bt.slip_bps,
                 min_sharpe=max(0.0, bt.min_sharpe - 0.1),
                 require_both_baselines=False,
             )

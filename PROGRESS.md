@@ -14,61 +14,32 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-07-20 EOD) — RESTART HERE
+## Session end checkpoint (2026-07-25) — RESTART HERE
 
-### Shipped this long session (summary)
-- Full v1 loop + P0 RTH gate, P1 eval, P2 logging, P3 advise policy, P4 monitor+WS  
-- Relative/CS LightGBM; portfolio **`neotrade backtest`** + promotion gate  
-- Session close checklist in `AGENTS.md` / PROGRESS top  
-- Live note: last **backtest gate=FAIL** (signal trails eq-weight & momentum on return)
+### Shipped
+- Full v1 + P0–P4 + desk + experiments + open-order plan  
+- BT slip/fees + fair baseline friction + **`defaults.py`**  
+- **Promote knobs:** `top_n=7`, `rebalance_every=14` (was 5/10)  
+- Bare `neotrade backtest` → **gate=PASS** (2y, 3/3 windows, friction stress ok)  
+- Exp `cc4a6aaa` rebal-7 → **fail** (worse full sample; closed)
 
-### Current stack (do not rebuild)
-
-| Layer | Status |
-|-------|--------|
-| Config + neotrade-core-22 | Done |
-| OHLCV + Alpaca MD REST/WS + monitor | Done |
-| LightGBM relative/CS + eval + **backtest gate** | Done |
-| Paper plan/execute + **RTH gate** | Done |
-| Advise + learning policy (journal only) | Done |
-| Dashboard + logging + smoke script | Done |
-| Quality score | **8.8** / floor **7.6** |
-| Tests | **89 passed** |
-
-### CLI map
+### Live BT (strict defaults)
 ```
-neotrade tickers | fetch | quotes | train | eval | backtest | signals
-neotrade account | session | paper-plan | paper-execute --confirm
-neotrade advise | monitor | stream | bench | dashboard
+signal +180.9%  eq +154.3%  mom +117.4%  edge_eq +26.6%
+windows 3/3 PASS · promote=True · slip/cost stress ok
 ```
+
+### Stack
+| Quality **9.6** / floor 7.6 | Tests **117** |
 
 ### Next session default
-1. Ops Mon: `DAILY_TODO` + `neotrade desk` + experiment complete after trials  
-2. Re-run `backtest` after weekly train  
+1. **Dev T1:** `scripts/weekly_promote.sh` (fetch→train→eval→BT→desk, no execute)  
+2. Or **T3:** commit dirty tree when asked  
+3. Ops Mon: desk + paper-plan (top_n=7)  
+4. Later: T2 fill calibration · T4 split `main.py`  
 
-### 2026-07-25 experiment ledger
-- `neotrade experiment open|complete|list|snapshot`
-- Desk auto-opens EXPERIMENT; complete compares gate snapshots
-- `scripts/run_desk.sh` for optional cron (no execute)
-
-### 2026-07-25 desk (smarter agents)
-- `neotrade desk`: ops → quant → PM → critic on fact packet  
-- Reads session/regime/account/signals/plan/eval/BT promote gates  
-- Saves `desk_latest.json`; learning log `desk_run` (not LightGBM)  
-- `docs/IMPROVEMENT_QUESTIONS.md` — questions + safe “LLM improves process” loop  
-
-### 2026-07-25 model track (smarter promote)
-- **Regime** (`signals/regime.py`): vol/breadth → blend, top_n, cash  
-- **Multi-window** BT: 3 overlapping windows; need ≥67% PASS  
-- **Cost stress** 10 bps; min Sharpe 0.35  
-- Promote = full_sample **and** stable_gate  
-- Live: promote=True · full +43.98% vs eq +39% · windows **3/3 PASS** · score **9.1**
-
-### Promote model only if
-`neotrade eval` sane **and** `neotrade backtest` prints `gate=PASS`.
-
-### Uncommitted
-Working tree has many local changes (not committed this session unless you ask).
+### Promote only if
+bare `backtest` → PASS (no `--fast`).
 
 ---
 

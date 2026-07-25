@@ -14,10 +14,62 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from neotrade.broker.alpaca import AccountSnapshot, Position
+from neotrade.broker.alpaca import AccountSnapshot, OpenOrder, Position
 from neotrade.broker.risk import RiskLimits, sleeve_map
 from neotrade.config.models import TickersConfig
 from neotrade.signals.score import SignalRow
+
+
+@dataclass(frozen=True)
+class OrderBookState:
+    """Derived exposure from fills + working orders (partial-fill aware)."""
+
+    reserved_buy_cash: float
+    pending_buy_qty: dict[str, float]
+    pending_buy_notional: dict[str, float]
+    pending_sell_qty: dict[str, float]
+    notes: list[str]
+
+
+def summarize_open_orders(
+    open_orders: list[OpenOrder],
+    *,
+    prices: dict[str, float],
+) -> OrderBookState:
+    """Aggregate working orders into reserved cash and pending qty by symbol."""
+    reserved = 0.0
+    buy_qty: dict[str, float] = {}
+    buy_notional: dict[str, float] = {}
+    sell_qty: dict[str, float] = {}
+    notes: list[str] = []
+    for oo in open_orders:
+        sym = oo.symbol.upper()
+        px = prices.get(sym)
+        if oo.side == "buy":
+            res = oo.reserved_buy_notional(px)
+            reserved += res
+            if oo.remaining_qty > 1e-12:
+                buy_qty[sym] = buy_qty.get(sym, 0.0) + oo.remaining_qty
+            if res > 0:
+                buy_notional[sym] = buy_notional.get(sym, 0.0) + res
+            notes.append(
+                f"open {oo.side} {sym} rem_qty={oo.remaining_qty:g} "
+                f"filled={oo.filled_qty:g} status={oo.status} reserved=${res:,.0f}"
+            )
+        elif oo.side == "sell":
+            pq = oo.pending_sell_qty()
+            if pq > 1e-12:
+                sell_qty[sym] = sell_qty.get(sym, 0.0) + pq
+            notes.append(
+                f"open sell {sym} rem_qty={pq:g} filled={oo.filled_qty:g} status={oo.status}"
+            )
+    return OrderBookState(
+        reserved_buy_cash=reserved,
+        pending_buy_qty=buy_qty,
+        pending_buy_notional=buy_notional,
+        pending_sell_qty=sell_qty,
+        notes=notes,
+    )
 
 
 @dataclass(frozen=True)
@@ -56,11 +108,13 @@ class TradePlan:
     cash: float = 0.0
     growth_mv: float = 0.0
     defensive_mv: float = 0.0
+    reserved_buy_cash: float = 0.0
 
     def summary_lines(self) -> list[str]:
         """Multi-line summary for CLI and agent context."""
         lines = [
-            f"equity=${self.equity:,.2f} cash=${self.cash:,.2f}",
+            f"equity=${self.equity:,.2f} cash=${self.cash:,.2f} "
+            f"reserved_open_buys=${self.reserved_buy_cash:,.2f}",
             f"sleeves: growth=${self.growth_mv:,.2f} defensive=${self.defensive_mv:,.2f}",
             f"intents: {len(self.intents)}",
         ]
@@ -103,15 +157,18 @@ def _plan_ranked(
     cfg: TickersConfig,
     risk: RiskLimits,
     prices: dict[str, float],
+    open_orders: list[OpenOrder],
 ) -> TradePlan:
     """Top-N by proba, equal-weight targets, exit names outside the book."""
     risk.validate()
     sleeves = sleeve_map(cfg)
     universe = set(sleeves)
     pos = _pos_map(positions)
+    book = summarize_open_orders(open_orders, prices=prices)
     equity = max(account.equity, 0.0)
     cash = max(account.cash, 0.0)
-    plan = TradePlan(equity=equity, cash=cash)
+    plan = TradePlan(equity=equity, cash=cash, reserved_buy_cash=book.reserved_buy_cash)
+    plan.notes.extend(book.notes)
 
     growth_mv = 0.0
     defensive_mv = 0.0
@@ -123,12 +180,17 @@ def _plan_ranked(
             growth_mv += max(p.market_value, 0.0)
         else:
             defensive_mv += max(p.market_value, 0.0)
+    # Working buys count toward sleeve exposure (prevents oversize)
+    for sym, ntl in book.pending_buy_notional.items():
+        if sleeves.get(sym) == "growth":
+            growth_mv += ntl
+        elif sleeves.get(sym) == "defensive":
+            defensive_mv += ntl
     plan.growth_mv = growth_mv
     plan.defensive_mv = defensive_mv
 
     ranked = [s for s in signals if s.symbol.upper() in universe]
     ranked.sort(key=lambda s: s.proba, reverse=True)
-    # Eligible: above soft floor (use sell_threshold as "stay interesting")
     floor = min(risk.buy_threshold, risk.sell_threshold + 0.05)
     eligible = [s for s in ranked if s.proba >= floor]
     if not eligible:
@@ -140,9 +202,15 @@ def _plan_ranked(
         + ",".join(f"{s.symbol}:{s.proba:.2f}" for s in targets)
     )
 
-    # Exit names not in target book (or hard sell side below floor)
+    # Exit names not in target book (or hard sell) — only remaining after pending sells
     for symbol, p in pos.items():
         if symbol not in universe or p.qty <= 0:
+            continue
+        pending_sell = book.pending_sell_qty.get(symbol, 0.0)
+        sellable = max(0.0, abs(p.qty) - pending_sell)
+        if sellable <= 1e-12:
+            if pending_sell > 0:
+                plan.notes.append(f"skip sell {symbol}: open sell covers position")
             continue
         sig = next((s for s in ranked if s.symbol.upper() == symbol), None)
         drop = symbol not in target_set
@@ -155,54 +223,59 @@ def _plan_ranked(
             )
             if hard_sell and not drop:
                 reason = f"hard sell proba={sig.proba:.3f}"
+            if pending_sell > 0:
+                reason += f" (after open sell {pending_sell:g})"
             plan.intents.append(
                 OrderIntent(
                     symbol=symbol,
                     side="sell",
-                    qty=abs(p.qty),
+                    qty=sellable,
                     notional=None,
                     reason=reason,
                     sleeve=sleeves.get(symbol, "growth"),
                 )
             )
-            mv = max(p.market_value, 0.0)
+            mv = sellable * (prices.get(symbol) or p.current_price or 0.0)
             if sleeves.get(symbol) == "growth":
                 growth_mv -= mv
             else:
                 defensive_mv -= mv
 
-    # Target equal weight among survivors; deploy almost all equity
     n_tgt = max(len(targets), 1)
     target_w = min(risk.max_position_pct, (1.0 - risk.min_cash_pct) / n_tgt)
     target_notional = equity * target_w
     band = risk.rebalance_band_pct
 
-    # After sells, approximate cash available (conservative: current cash only for buys;
-    # backtest applies sells first so this matches fill order)
-    spendable = max(0.0, cash - equity * risk.min_cash_pct)
-    # Credit pending sell MV into spendable for planning denser books
+    # Free cash minus buffer minus reserved working buys
+    spendable = max(0.0, cash - equity * risk.min_cash_pct - book.reserved_buy_cash)
     for intent in plan.intents:
         if intent.side == "sell" and intent.qty:
             px = prices.get(intent.symbol) or 0.0
             spendable += intent.qty * px
 
-    # Sort buys: underweight targets first (highest proba first among them)
-    def held_mv(sym: str) -> float:
+    def exposure_mv(sym: str) -> float:
+        """Filled MV + working buy notional (partial-fill aware)."""
         p = pos.get(sym)
-        return max(p.market_value, 0.0) if p else 0.0
+        filled = max(p.market_value, 0.0) if p else 0.0
+        pending = book.pending_buy_notional.get(sym, 0.0)
+        if pending <= 0 and book.pending_buy_qty.get(sym, 0) > 0:
+            px = prices.get(sym) or 0.0
+            pending = book.pending_buy_qty[sym] * px
+        return filled + pending
 
-    buy_order = sorted(targets, key=lambda s: (held_mv(s.symbol.upper()), -s.proba))
+    buy_order = sorted(targets, key=lambda s: (exposure_mv(s.symbol.upper()), -s.proba))
     for sig in buy_order:
         if spendable < risk.min_notional:
             break
         symbol = sig.symbol.upper()
-        current = held_mv(symbol)
-        # if we're exiting this name in same plan, treat current as 0
+        current = exposure_mv(symbol)
         if any(i.symbol == symbol and i.side == "sell" for i in plan.intents):
             current = 0.0
         desired = target_notional
         if current >= desired * (1.0 - band) and current > 0:
-            continue  # within band
+            if book.pending_buy_qty.get(symbol, 0) > 0 or book.pending_buy_notional.get(symbol, 0) > 0:
+                plan.notes.append(f"skip buy {symbol}: open buy + fill within band")
+            continue
         need = desired - current
         if need < risk.min_notional:
             continue
@@ -212,13 +285,16 @@ def _plan_ranked(
         qty, order_notional, eff = _size_buy(symbol=symbol, notional=notional, prices=prices)
         if eff < risk.min_notional and order_notional is None:
             continue
+        reason = f"ranked top{risk.top_n} proba={sig.proba:.3f}"
+        if book.pending_buy_qty.get(symbol, 0) > 0:
+            reason += " (add after partial open buy)"
         plan.intents.append(
             OrderIntent(
                 symbol=symbol,
                 side="buy",
                 qty=qty,
                 notional=order_notional,
-                reason=f"ranked top{risk.top_n} proba={sig.proba:.3f}",
+                reason=reason,
                 sleeve=sleeves.get(symbol, "growth"),
             )
         )
@@ -243,17 +319,20 @@ def _plan_sides(
     cfg: TickersConfig,
     risk: RiskLimits,
     prices: dict[str, float],
+    open_orders: list[OpenOrder],
 ) -> TradePlan:
     """Legacy side-based policy (buy new buys, sell sells)."""
     risk.validate()
     sleeves = sleeve_map(cfg)
     universe = set(sleeves)
     pos = _pos_map(positions)
+    book = summarize_open_orders(open_orders, prices=prices)
 
     equity = max(account.equity, 0.0)
     cash = max(account.cash, 0.0)
-    plan = TradePlan(equity=equity, cash=cash)
+    plan = TradePlan(equity=equity, cash=cash, reserved_buy_cash=book.reserved_buy_cash)
     plan.notes.append("mode=sides")
+    plan.notes.extend(book.notes)
 
     growth_mv = 0.0
     defensive_mv = 0.0
@@ -265,6 +344,11 @@ def _plan_sides(
             growth_mv += max(p.market_value, 0.0)
         else:
             defensive_mv += max(p.market_value, 0.0)
+    for sym, ntl in book.pending_buy_notional.items():
+        if sleeves.get(sym) == "growth":
+            growth_mv += ntl
+        elif sleeves.get(sym) == "defensive":
+            defensive_mv += ntl
     plan.growth_mv = growth_mv
     plan.defensive_mv = defensive_mv
 
@@ -277,24 +361,30 @@ def _plan_sides(
         if sig is None:
             continue
         if sig.side == "sell" and p.qty > 0:
+            pending_sell = book.pending_sell_qty.get(symbol, 0.0)
+            sellable = max(0.0, abs(p.qty) - pending_sell)
+            if sellable <= 1e-12:
+                plan.notes.append(f"skip sell {symbol}: open sell covers position")
+                continue
             plan.intents.append(
                 OrderIntent(
                     symbol=symbol,
                     side="sell",
-                    qty=abs(p.qty),
+                    qty=sellable,
                     notional=None,
                     reason=f"signal sell proba={sig.proba:.3f}",
                     sleeve=sleeves[symbol],
                 )
             )
+            mv = sellable * (prices.get(symbol) or p.current_price or 0.0)
             if sleeves[symbol] == "growth":
-                growth_mv -= max(p.market_value, 0.0)
+                growth_mv -= mv
             else:
-                defensive_mv -= max(p.market_value, 0.0)
+                defensive_mv -= mv
 
-    spendable = max(0.0, cash - equity * risk.min_cash_pct)
+    spendable = max(0.0, cash - equity * risk.min_cash_pct - book.reserved_buy_cash)
     if spendable < risk.min_notional:
-        plan.notes.append("insufficient cash after min_cash_pct buffer")
+        plan.notes.append("insufficient cash after min_cash_pct + open buy reserves")
         plan.growth_mv = max(growth_mv, 0.0)
         plan.defensive_mv = max(defensive_mv, 0.0)
         return plan
@@ -306,7 +396,9 @@ def _plan_sides(
 
     buys = [s for s in signals if s.side == "buy" and s.symbol.upper() in universe]
     buys.sort(key=lambda s: s.proba, reverse=True)
-    buys = [s for s in buys if s.symbol.upper() not in pos]
+    # Skip names with filled position OR working buy (avoid double-buy)
+    held_or_pending = set(pos.keys()) | set(book.pending_buy_qty) | set(book.pending_buy_notional)
+    buys = [s for s in buys if s.symbol.upper() not in held_or_pending]
 
     max_name = equity * risk.max_position_pct
     new_count = 0
@@ -362,14 +454,17 @@ def build_trade_plan(
     cfg: TickersConfig,
     risk: RiskLimits,
     prices: dict[str, float] | None = None,
+    open_orders: list[OpenOrder] | None = None,
 ) -> TradePlan:
     """Construct a paper trade plan using ``risk.plan_mode``.
 
-    Note:
-        Open / accepted orders are **not** modeled as positions. Pass only
-        filled :class:`Position` objects from the broker.
+    Args:
+        open_orders: Working / partially filled orders. Reserved buy cash is
+            subtracted from spendable; pending sells reduce sellable qty;
+            pending buys count toward name exposure (no double-buy).
     """
     prices = dict(prices or {})
+    oos = list(open_orders or [])
     mode = (risk.plan_mode or "ranked").strip().lower()
     if mode == "sides":
         return _plan_sides(
@@ -379,6 +474,7 @@ def build_trade_plan(
             cfg=cfg,
             risk=risk,
             prices=prices,
+            open_orders=oos,
         )
     return _plan_ranked(
         signals=signals,
@@ -387,4 +483,5 @@ def build_trade_plan(
         cfg=cfg,
         risk=risk,
         prices=prices,
+        open_orders=oos,
     )

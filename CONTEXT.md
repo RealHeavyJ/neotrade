@@ -19,7 +19,8 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
 | Risk | ranked top-5 · max name 18% · execute needs `--confirm` |
 | Score blend | Regime-aware model/mom blend (default ~40/60) |
-| Promote | `backtest` exit 0 = full_sample + multi-window stable gates |
+| Promote | bare `neotrade backtest` exit 0 (2y+slip+windows+stress); flags = ablation only |
+| Defaults | `src/neotrade/defaults.py` — production-strict; CLI opt-out |
 | Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
 | Monitoring | REST `monitor` + WS `stream` (IEX); quotes anytime free MD allows; execute RTH-only |
 

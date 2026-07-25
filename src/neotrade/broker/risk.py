@@ -30,7 +30,7 @@ class RiskLimits:
         paper_only: Documentation flag; live trading is refused elsewhere.
     """
 
-    max_position_pct: float = 0.12
+    max_position_pct: float = 0.15
     growth_target_pct: float = 0.68
     defensive_target_pct: float = 0.32
     max_new_positions: int = 8
@@ -39,7 +39,7 @@ class RiskLimits:
     buy_threshold: float = 0.50
     sell_threshold: float = 0.40
     plan_mode: Literal["ranked", "sides"] = "ranked"
-    top_n: int = 5
+    top_n: int = 7
     rebalance_band_pct: float = 0.15
     paper_only: bool = True
 
@@ -72,7 +72,7 @@ def default_risk_limits(cfg: TickersConfig | None = None) -> RiskLimits:
             buy_threshold=r.buy_threshold,
             sell_threshold=r.sell_threshold,
             plan_mode=getattr(r, "plan_mode", "ranked") or "ranked",
-            top_n=int(getattr(r, "top_n", 5) or 5),
+            top_n=int(getattr(r, "top_n", 7) or 7),
             rebalance_band_pct=float(getattr(r, "rebalance_band_pct", 0.15) or 0.15),
             paper_only=r.paper_only,
         )

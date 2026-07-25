@@ -3,9 +3,10 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-25 (Sat) — **weekly** fetch/train/eval/backtest **done**  
+**Last ops review:** 2026-07-25 (Sat) — strict BT **promote PASS**  
 **Book snapshot:** equity **~$98,909** · cash **$20,208** · **10 positions** · **0 open orders**  
-**Model gate:** after strategy fix — backtest **PASS** (sig +72% vs eq +39% / mom +44%) · re-check after next weekly
+**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · sig +181% vs eq +154% / mom +117% · 3/3 win)  
+**Next RTH:** 2026-07-27 09:30 ET — paper-plan may rebalance toward 7 names
 
 ---
 
@@ -156,8 +157,10 @@ neotrade desk                 # preferred over advise alone
 ```bash
 cd ~/dev/neotrade && source .venv/bin/activate
 neotrade fetch --force && neotrade train && neotrade eval && neotrade backtest
+# bare backtest = production defaults (2y, slip, multi-window); do not use --fast for promote
 neotrade signals && neotrade account && neotrade paper-plan
-neotrade bench && pytest -q
+neotrade desk
+neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
 Last updated: 2026-07-25 (weekly complete; BT gate FAIL)

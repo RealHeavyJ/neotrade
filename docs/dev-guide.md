@@ -79,28 +79,33 @@ neotrade eval --folds 4 --horizon 5 --rounds 100
 
 ### Portfolio backtest (model promotion)
 
+### Defaults philosophy
+
+**Bare commands use production-strict settings** (`neotrade.defaults`).  
+Flags are **opt-outs** for ablation / faster smoke — not the “real” path.
+
+| Command | Default (smart) | Ablation opt-out |
+|---------|-----------------|------------------|
+| `backtest` | 2y, slip 5, cost 5, 3 windows, regime, friction stress | `--fast`, `--period 1y`, `--slip-bps 0`, `--windows 1`, `--no-regime` |
+| `train` | relative labels, 160 rounds | `--label-mode absolute` |
+| `eval` | 4 folds, relative | `--absolute-label` |
+| data | `default_period: 2y` in tickers.yaml | shorter period in YAML or `--period` |
+
 ```bash
-neotrade backtest
-neotrade backtest --windows 3 --cost-stress-bps 10
-neotrade backtest --no-regime          # ablation
-neotrade backtest --require-both       # harder: beat eq AND mom
+neotrade backtest                 # full promote path (no extra flags needed)
+neotrade backtest --fast          # smoke only — NOT for promote
+neotrade backtest --require-both  # even harder gate
+neotrade backtest --no-regime     # ablation
 ```
 
-Walk-forward portfolio simulation using **production** `build_trade_plan` risk rules:
+Walk-forward portfolio simulation using **production** `build_trade_plan`:
 
-- Default plan **mode=ranked**: hold equal-weight **top-N** by blended score
-- Score blend: regime-aware model vs CS momentum (see `signals/regime.py`)
-- **Regime filter**: vol/breadth → adjust top_n, cash, blend weights
-- Rebalance every `--rebalance-every` days; retrain every `--retrain-every`
-- Decision at close *t*, fill at **next open**
-- **Multi-window stability**: default 3 overlapping windows; need ≥67% PASS
-- **Cost stress**: re-run at higher bps; must still beat ≥1 baseline
-- **Promotion** (`exit 0`): full_sample_gate **and** stable_gate PASS
+- Ranked top-N, regime blend, next-open fills with **slip + fees**
+- Multi-window stability + friction stress
+- **Promotion** (`exit 0`): full_sample **and** stable_gate PASS
 - Writes `data/learning/backtest_latest.json`
 
-```bash
-# legacy buy/sell-side planner (config risk.plan_mode: sides)
-```
+Canonical numbers: `src/neotrade/defaults.py`.
 
 ## Alpaca paper
 
@@ -114,8 +119,18 @@ neotrade paper-plan           # dry-run intents from signals + risk
 neotrade paper-execute --confirm   # submit market orders (paper only)
 ```
 
-Risk defaults live under `risk:` in `config/tickers.yaml` (8% max name, 68/32 sleeves).
+Risk defaults live under `risk:` in `config/tickers.yaml` (ranked top-N, position caps).
 Client **refuses live** Alpaca URLs when `require_paper=True`.
+
+### Open orders / partial fills
+
+`build_trade_plan(..., open_orders=...)` is **partial-fill aware**:
+
+- Working **buys** reserve cash and count toward name exposure (no double-buy)
+- Working **sells** reduce sellable qty (only sell remaining shares)
+- Plan notes list each open order; summary shows `reserved_open_buys=$…`
+
+CLI `paper-plan` / `paper-execute` / desk / dashboard pass live open orders automatically.
 
 ### Market hours gate (RTH only)
 

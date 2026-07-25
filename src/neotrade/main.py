@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from neotrade import __version__
+from neotrade import defaults as D
 from neotrade.agents import run_advise, run_desk
 from neotrade.agents.desk import DeskMockLLM
 from neotrade.agents.llm import MockLLM, OllamaClient, OllamaConfig
@@ -175,22 +176,56 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 
 
 def _cmd_backtest(args: argparse.Namespace) -> int:
-    """Walk-forward portfolio backtest + promotion gate (no live orders)."""
+    """Walk-forward portfolio backtest + promotion gate (no live orders).
+
+    Bare ``neotrade backtest`` uses production-strict defaults (2y, slip, stress,
+    multi-window). Flags are opt-outs for ablation — see ``neotrade.defaults``.
+    """
     cfg = load_tickers_config(args.config)
     root = project_root()
     risk = default_risk_limits(cfg)
-    bars = load_universe_ohlcv(cfg, force_refresh=False, root=root)
+    # Production path is strict; --fast is explicit ablation only
+    if getattr(args, "fast", False):
+        period = args.period or "1y"
+        args.windows = 1
+        args.cost_bps = 0.0
+        args.slip_bps = 0.0
+        args.cost_stress_bps = 0.0
+        args.slip_stress_bps = 0.0
+        args.no_regime = True
+        print("warn: --fast ablation (not valid for promote)", file=sys.stderr)
+    else:
+        period = args.period if args.period is not None else (cfg.data.default_period or D.BT_PERIOD)
+
+    force = bool(args.force_refresh)
+    if period != cfg.data.default_period:
+        print(f"data period: {period} (config default was {cfg.data.default_period})")
+        force = True
+    bars = load_universe_ohlcv(
+        cfg,
+        force_refresh=force,
+        root=root,
+        period=period,
+    )
     if bars.errors:
         for err in bars.errors:
             print(f"warn: {err}", file=sys.stderr)
+    train_days = D.train_days_for_period(period, explicit=args.train_days)
+    print(
+        f"bt: period={period} train_days={train_days} "
+        f"cost={args.cost_bps}bps slip={args.slip_bps}bps "
+        f"windows={args.windows} regime={not args.no_regime} "
+        f"stress cost/slip={args.cost_stress_bps}/{args.slip_stress_bps}"
+    )
     bt = BacktestConfig(
         initial_cash=float(args.cash),
         horizon=int(args.horizon),
-        train_days=int(args.train_days),
+        train_days=train_days,
         retrain_every=int(args.retrain_every),
         rebalance_every=int(args.rebalance_every),
         num_boost_round=int(args.rounds),
         cost_bps=float(args.cost_bps),
+        slip_bps=float(args.slip_bps),
         buy_threshold=float(args.buy_threshold) if args.buy_threshold is not None else risk.buy_threshold,
         sell_threshold=float(args.sell_threshold) if args.sell_threshold is not None else risk.sell_threshold,
         fill=str(args.fill),
@@ -199,6 +234,7 @@ def _cmd_backtest(args: argparse.Namespace) -> int:
         min_window_pass_frac=float(args.min_window_pass),
         use_regime=not args.no_regime,
         cost_stress_bps=float(args.cost_stress_bps),
+        slip_stress_bps=float(args.slip_stress_bps),
         min_sharpe=float(args.min_sharpe),
         require_both_baselines=bool(args.require_both),
     )
@@ -316,16 +352,18 @@ def _cmd_account(_: argparse.Namespace) -> int:
             f"  {p.symbol:<6} qty={p.qty:g} mv=${p.market_value:,.2f} "
             f"px={p.current_price:.2f} upl=${p.unrealized_pl:,.2f}"
         )
-    open_orders = client.list_orders(status="open", limit=50)
+    open_orders = client.list_open_orders(limit=50)
     print(f"open_orders={len(open_orders)}")
     for o in open_orders:
         print(
-            f"  {o.get('side', '?'):<4} {o.get('symbol', '')!s:<6} "
-            f"qty={o.get('qty')} status={o.get('status')} "
-            f"filled={o.get('filled_qty', 0)}"
+            f"  {o.side:<4} {o.symbol:<6} "
+            f"rem={o.remaining_qty:g} filled={o.filled_qty:g} "
+            f"status={o.status}"
         )
     if open_orders and not positions:
         print("note: day market orders often stay accepted until the next US regular session")
+    if open_orders:
+        print("note: paper-plan reserves open-buy cash and avoids double-buy/sell")
     if not session.allow_execute:
         print("note: paper execute blocked until US RTH (09:30–16:00 ET); no after-hours")
     return 0
@@ -346,6 +384,7 @@ def _cmd_paper_plan(args: argparse.Namespace) -> int:
         client = AlpacaPaperClient()
         acct = client.get_account()
         positions = client.list_positions()
+        open_orders = client.list_open_orders()
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -359,6 +398,7 @@ def _cmd_paper_plan(args: argparse.Namespace) -> int:
         cfg=cfg,
         risk=risk,
         prices=prices,
+        open_orders=open_orders,
     )
     for line in plan.summary_lines():
         print(line)
@@ -387,6 +427,7 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
             print("account trading blocked", file=sys.stderr)
             return 1
         positions = client.list_positions()
+        open_orders = client.list_open_orders()
     except FileNotFoundError as exc:
         log.error("%s", exc)
         print(str(exc), file=sys.stderr)
@@ -402,6 +443,7 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
         cfg=cfg,
         risk=risk,
         prices=prices,
+        open_orders=open_orders,
     )
     if not plan.intents:
         print("no intents to execute")
@@ -885,15 +927,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_train = sub.add_parser("train", help="train LightGBM signal model on cached OHLCV")
     p_train.add_argument("--config", type=str, default=None)
     p_train.add_argument("--output", type=str, default=str(DEFAULT_MODEL_PATH))
-    p_train.add_argument("--horizon", type=int, default=5, help="forward-return label horizon (days)")
-    p_train.add_argument("--rounds", type=int, default=160)
-    p_train.add_argument("--valid-fraction", type=float, default=0.2)
+    p_train.add_argument(
+        "--horizon",
+        type=int,
+        default=D.TRAIN_HORIZON,
+        help=f"forward-return label horizon days (default {D.TRAIN_HORIZON})",
+    )
+    p_train.add_argument("--rounds", type=int, default=D.TRAIN_ROUNDS)
+    p_train.add_argument("--valid-fraction", type=float, default=D.TRAIN_VALID_FRACTION)
     p_train.add_argument(
         "--label-mode",
         type=str,
-        default="relative",
+        default=D.TRAIN_LABEL_MODE,
         choices=["relative", "absolute"],
-        help="relative=beat CS median fwd ret (default); absolute=fwd_ret>0",
+        help="relative=beat CS median (default); absolute=fwd_ret>0 ablation",
     )
     p_train.set_defaults(func=_cmd_train)
 
@@ -902,9 +949,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="walk-forward LightGBM eval vs baselines (does not save model)",
     )
     p_eval.add_argument("--config", type=str, default=None)
-    p_eval.add_argument("--horizon", type=int, default=5)
-    p_eval.add_argument("--folds", type=int, default=4)
-    p_eval.add_argument("--rounds", type=int, default=100)
+    p_eval.add_argument("--horizon", type=int, default=D.TRAIN_HORIZON)
+    p_eval.add_argument("--folds", type=int, default=D.EVAL_FOLDS)
+    p_eval.add_argument("--rounds", type=int, default=D.EVAL_ROUNDS)
     p_eval.add_argument(
         "--absolute-label",
         action="store_true",
@@ -915,49 +962,92 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_bt = sub.add_parser(
         "backtest",
-        help="walk-forward portfolio BT vs eq-weight/momentum (promotion gate)",
+        help="strict portfolio BT + promote gate (defaults=production; flags=ablation)",
     )
     p_bt.add_argument("--config", type=str, default=None)
-    p_bt.add_argument("--cash", type=float, default=100_000.0)
-    p_bt.add_argument("--horizon", type=int, default=5)
-    p_bt.add_argument("--train-days", type=int, default=120)
-    p_bt.add_argument("--retrain-every", type=int, default=21)
+    p_bt.add_argument("--cash", type=float, default=D.BT_CASH)
+    p_bt.add_argument("--horizon", type=int, default=D.TRAIN_HORIZON)
+    p_bt.add_argument(
+        "--train-days",
+        type=int,
+        default=None,
+        help=f"train window (default: auto from period, usually {D.BT_TRAIN_DAYS})",
+    )
+    p_bt.add_argument("--retrain-every", type=int, default=D.BT_RETRAIN_EVERY)
     p_bt.add_argument(
         "--rebalance-every",
         type=int,
-        default=10,
-        help="days between score+rebalance (default 10)",
+        default=D.BT_REBALANCE_EVERY,
+        help=f"days between score+rebalance (default {D.BT_REBALANCE_EVERY})",
     )
-    p_bt.add_argument("--rounds", type=int, default=100)
-    p_bt.add_argument("--cost-bps", type=float, default=5.0, help="one-way cost in bps per fill")
+    p_bt.add_argument("--rounds", type=int, default=D.BT_ROUNDS)
+    p_bt.add_argument(
+        "--cost-bps",
+        type=float,
+        default=D.BT_COST_BPS,
+        help=f"fee bps (default {D.BT_COST_BPS}; use 0 only for ablation)",
+    )
+    p_bt.add_argument(
+        "--slip-bps",
+        type=float,
+        default=D.BT_SLIP_BPS,
+        help=f"adverse slip bps (default {D.BT_SLIP_BPS}; use 0 only for ablation)",
+    )
+    p_bt.add_argument(
+        "--period",
+        type=str,
+        default=None,
+        help=f"OHLCV lookback (default config/{D.BT_PERIOD}; use 1y only for fast smoke)",
+    )
+    p_bt.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="re-download bars",
+    )
     p_bt.add_argument("--buy-threshold", type=float, default=None)
     p_bt.add_argument("--sell-threshold", type=float, default=None)
-    p_bt.add_argument("--fill", type=str, default="next_open", choices=["next_open", "next_close"])
-    p_bt.add_argument("--momentum-top-n", type=int, default=5)
+    p_bt.add_argument(
+        "--fill",
+        type=str,
+        default=D.BT_FILL,
+        choices=["next_open", "next_close"],
+    )
+    p_bt.add_argument("--momentum-top-n", type=int, default=D.RISK_TOP_N)
     p_bt.add_argument(
         "--windows",
         type=int,
-        default=3,
-        help="chronological stability windows (default 3; 1=full sample only)",
+        default=D.BT_WINDOWS,
+        help=f"stability windows (default {D.BT_WINDOWS}; 1=disable multi-window)",
     )
     p_bt.add_argument(
         "--min-window-pass",
         type=float,
-        default=0.67,
-        help="fraction of windows that must PASS (default 0.67)",
+        default=D.BT_MIN_WINDOW_PASS,
+        help=f"fraction of windows that must PASS (default {D.BT_MIN_WINDOW_PASS})",
     )
-    p_bt.add_argument("--no-regime", action="store_true", help="disable vol/breadth regime filter")
+    p_bt.add_argument("--no-regime", action="store_true", help="ablation: disable regime filter")
     p_bt.add_argument(
         "--cost-stress-bps",
         type=float,
-        default=10.0,
-        help="stress cost bps; must still beat a baseline (default 10)",
+        default=D.BT_COST_STRESS_BPS,
+        help=f"stress fee bps (default {D.BT_COST_STRESS_BPS})",
     )
-    p_bt.add_argument("--min-sharpe", type=float, default=0.35)
+    p_bt.add_argument(
+        "--slip-stress-bps",
+        type=float,
+        default=D.BT_SLIP_STRESS_BPS,
+        help=f"stress slip bps (default {D.BT_SLIP_STRESS_BPS})",
+    )
+    p_bt.add_argument("--min-sharpe", type=float, default=D.BT_MIN_SHARPE)
     p_bt.add_argument(
         "--require-both",
         action="store_true",
-        help="require beating both eq-weight and momentum baselines",
+        help="harder gate: beat both eq-weight and momentum",
+    )
+    p_bt.add_argument(
+        "--fast",
+        action="store_true",
+        help="ablation smoke: 1y, 1 window, no friction stress (NOT for promote)",
     )
     p_bt.add_argument("--no-save", action="store_true")
     p_bt.set_defaults(func=_cmd_backtest)

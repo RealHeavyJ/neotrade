@@ -6,7 +6,7 @@
 [![pytest](https://img.shields.io/badge/tests-94%20passed-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![coverage](https://img.shields.io/badge/coverage-68%25-yellow)](https://codecov.io/gh/RealHeavyJ/neotrade)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Quality](https://img.shields.io/badge/quality_score-9.3%2F10-brightgreen)](QUALITY_SCORE.md)
+[![Quality](https://img.shields.io/badge/quality_score-9.6%2F10-brightgreen)](QUALITY_SCORE.md)
 [![Paper only](https://img.shields.io/badge/trading-paper%20only-orange)](docs/user-guide.md)
 [![Local LLM](https://img.shields.io/badge/LLM-Ollama%20local-purple)](docs/dev-guide.md)
 [![RTH gate](https://img.shields.io/badge/execute-US%20RTH%20only-critical)](docs/user-guide.md)
@@ -49,7 +49,8 @@ neotrade monitor --once     # one poll; or --interval 15 (watch only)
 neotrade stream --symbols NVDA,AMD,ARM,TSM -v   # IEX WebSocket (watch only)
 neotrade train              # LightGBM -> models/signal.txt
 neotrade eval               # walk-forward vs baselines (ML rigor)
-neotrade backtest           # portfolio WF BT + promotion gate
+neotrade backtest           # strict promote path (2y+slip+windows — no flags needed)
+# neotrade backtest --fast  # smoke only, not for promote
 neotrade signals            # score universe
 # Paper (after copying .env.example -> .env with paper keys):
 neotrade session              # US RTH? execute allowed?

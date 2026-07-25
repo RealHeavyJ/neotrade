@@ -118,11 +118,20 @@ def load_universe_ohlcv(
     root: Path | None = None,
     force_refresh: bool = False,
     provider: str | None = None,
+    period: str | None = None,
+    interval: str | None = None,
 ) -> UniverseBars:
-    """Load OHLCV for all configured tickers with partial-error tolerance."""
+    """Load OHLCV for all configured tickers with partial-error tolerance.
+
+    Args:
+        period: Override ``cfg.data.default_period`` (e.g. ``2y`` for longer BT).
+        interval: Override ``cfg.data.default_interval``.
+    """
     root = root or project_root()
     provider = (provider or cfg.data.provider).lower()
     cache_dir = resolve_cache_dir(cfg.data.cache_dir, root)
+    use_period = period or cfg.data.default_period
+    use_interval = interval or cfg.data.default_interval
     frames: dict[str, pd.DataFrame] = {}
     errors: list[str] = []
     for ticker in cfg.tickers:
@@ -131,8 +140,8 @@ def load_universe_ohlcv(
             frames[sym] = fetch_ohlcv(
                 sym,
                 cache_dir=cache_dir,
-                period=cfg.data.default_period,
-                interval=cfg.data.default_interval,
+                period=use_period,
+                interval=use_interval,
                 max_age_hours=cfg.data.max_age_hours,
                 force_refresh=force_refresh,
                 provider=provider,

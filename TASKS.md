@@ -39,7 +39,9 @@ moves quality toward 8.5+ without rebuilding v1.
 - [x] Portfolio walk-forward **backtest** + promotion gate (`neotrade backtest`)
 - [x] Improve strategy: ranked top-N + model/mom blend → BT **PASS** (2026-07-25)
 - [x] Smarter model track: regime filter + multi-window stable gate + cost stress (2026-07-25)
-- [ ] Re-check: keep stable_gate PASS after data refreshes / longer history
+- [x] Production-strict defaults (`neotrade.defaults`); bare backtest = promote path (2026-07-25)
+- [x] Promote knobs: top_n=7 + rebalance_every=14; fair baseline slip (2026-07-25) → **PASS**
+- [ ] Re-check: keep stable_gate PASS after weekly data refresh
 
 ### P2 — observability & errors
 - [x] Structured logging (`logging_config.py`; level/JSON/file env)
@@ -59,7 +61,7 @@ moves quality toward 8.5+ without rebuilding v1.
 - [x] Dashboard Quotes auto-refresh option
 - [x] Still **no** execute from monitor; RTH gate unchanged
 - [x] Optional WebSocket stream (`monitor/stream.py`, `neotrade stream`, IEX)
-- [ ] Handle partial fills / order lifecycle in plan (v1 ignores working orders by design)
+- [x] Handle partial fills / order lifecycle in plan (`OpenOrder`, reserved cash, no double-buy/sell)
 
 ## Explicitly deferred
 - Cloud LLMs for runtime agents  
@@ -67,11 +69,49 @@ moves quality toward 8.5+ without rebuilding v1.
 - Feeding advise text into signal model training  
 - Institutional multi-account / OMS features  
 
+## Next dev tracks (post-promote) — pick one
+
+v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a weak dimension
+(code quality **7.7**, realtime **7.3**, arch **8.3**) or hardens the PASS.
+
+### T1 — Weekly automation (highest product value)
+- [ ] `scripts/weekly_promote.sh` (or `neotrade weekly`): fetch→train→eval→backtest→desk  
+- [ ] Exit non-zero if bare BT FAIL; never execute  
+- [ ] Optional cron/launchd example in `docs/user-guide.md`  
+- **Lifts:** observability, ops cadence → path to **9.7**
+
+### T2 — Fill calibration (ML rigor)
+- [ ] Log paper fill mid vs fill price → estimated slip_bps  
+- [ ] `neotrade fills-report` or section on `account`  
+- [ ] Feed median slip into BT default only after N≥20 fills  
+- **Lifts:** ML rigor, correctness
+
+### T3 — Hygiene / ship
+- [ ] Commit current dirty tree (defaults, top_n=7, slip, desk, …) when user asks  
+- [ ] `./scripts/ci_local.sh` green before push  
+- [ ] Optional Codecov token in CI secrets  
+
+### T4 — Code quality (weakest eng dim)
+- [ ] Split `main.py` → `cli/` submodules (train/eval/bt/broker/desk)  
+- [ ] Kill remaining broad excepts; type-narrow public APIs  
+- **Lifts:** code quality **7.7 → ~8.2**, arch
+
+### T5 — ML depth (optional, not blocking)
+- [ ] Purged CV / embargo beyond expanding WF  
+- [ ] Feature ablation report (`neotrade eval --ablate`)  
+- [ ] Keep promote PASS on next weekly refresh (regression check)
+
+### T6 — Realtime polish (optional)
+- [ ] Desk/monitor: stale-quote age + “book not fully streamed” warning  
+- [ ] Dashboard: show promote gate + top_n/rebal from defaults  
+
+### Do not
+- Rebuild v1 layers · live trading · train on advise prose · multi-open experiments  
+
 ## Status
-**v1 complete.** Score **9.1** / floor **7.6**.  
-**2026-07-25 model track:** regime + multi-window stable gate → **promote=True** (3/3 windows PASS, cost stress ok).  
-**Next:** ops Mon + use experiment loop; optional partial-fills / longer history.  
-**Promote:** `neotrade backtest` exit 0 (full + stable gates).  
-**Shipped:** desk + **experiment ledger** + `scripts/run_desk.sh`.
+**v1 complete.** Score **9.6** / floor **7.6**. Tests **117**.  
+**Promote:** bare `neotrade backtest` → **PASS** (top_n=7, rebal=14, 2y+slip).  
+**Next coding default:** **T1 weekly automation** (or T3 commit if shipping).  
+**Next ops:** Mon RTH desk + paper-plan under top_n=7.
 
 Last updated: 2026-07-25

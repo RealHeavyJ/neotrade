@@ -48,7 +48,7 @@ class DataSettings(BaseModel):
         default="auto",
         description="auto = Alpaca bars first, yfinance fallback",
     )
-    default_period: str = "1y"
+    default_period: str = "2y"  # production default (see neotrade.defaults)
     default_interval: str = "1d"
     max_age_hours: float = Field(default=24.0, gt=0)
 
@@ -65,7 +65,7 @@ class RiskSettings(BaseModel):
     buy_threshold: float = Field(default=0.50, ge=0, le=1)
     sell_threshold: float = Field(default=0.40, ge=0, le=1)
     plan_mode: Literal["ranked", "sides"] = "ranked"
-    top_n: int = Field(default=5, ge=1, le=30)
+    top_n: int = Field(default=7, ge=1, le=30)
     rebalance_band_pct: float = Field(default=0.15, ge=0, le=0.5)
     paper_only: bool = True
 

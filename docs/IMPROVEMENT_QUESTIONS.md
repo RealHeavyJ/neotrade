@@ -61,12 +61,14 @@ Use it in weekly reviews and when driving the **desk** agents.
 | Regime filter | Avoids one-size-fits-all risk | **Done** |
 | Ranked top-N plan | Aligns book with scores | **Done** |
 | **`neotrade desk` multi-agent** | Ops/quant/PM/critic on real packet | **Done** |
-| **Experiment ledger** (`neotrade experiment`) | Desk EXPERIMENT → before/after gates | **Done** |
+| **Experiment ledger** | Desk EXPERIMENT → before/after gates | **Done** |
 | Scheduled desk script | `scripts/run_desk.sh` (no execute) | **Done** |
-| Full auto weekly: fetch→train→eval→BT→desk | Still human-gated train | Next |
-| Longer history / more regimes | Harder, more honest PASS | Later |
-| Partial-fill aware plan | Matches real broker state | Later |
-| Slippage model calibrated to your fills | BT closer to paper reality | Later |
+| Partial-fill aware plan | Matches broker working orders | **Done** |
+| BT slip + 2y default (`defaults.py`) | Strict promote path without flags | **Done** |
+| top_n=7 + rebal=14 under strict 2y BT | Bare promote PASS | **Done** |
+| Full auto weekly: fetch→train→eval→BT→desk | Cadence without babysitting | **Next (T1)** |
+| Calibrate slip_bps from live paper fills | BT matches your fills | Later (T2) |
+| Split main.py → cli/ | Maintainability | Later (T4) |
 
 ---
 

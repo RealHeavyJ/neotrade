@@ -200,7 +200,7 @@ def gather_desk_packet(
             client = AlpacaPaperClient()
             acct = client.get_account()
             positions = client.list_positions()
-            open_orders = client.list_orders(status="open", limit=20)
+            open_orders = client.list_open_orders(limit=20)
             packet.account_lines = [
                 f"equity=${acct.equity:,.2f} cash=${acct.cash:,.2f} bp=${acct.buying_power:,.2f}",
                 f"status={acct.status} blocked={acct.trading_blocked or acct.account_blocked}",
@@ -213,8 +213,8 @@ def gather_desk_packet(
                 )
             for o in open_orders[:8]:
                 packet.account_lines.append(
-                    f"WORKING {o.get('side')} {o.get('symbol')} qty={o.get('qty')} "
-                    f"status={o.get('status')}"
+                    f"WORKING {o.side} {o.symbol} rem_qty={o.remaining_qty:g} "
+                    f"filled={o.filled_qty:g} status={o.status}"
                 )
             plan = build_trade_plan(
                 signals=scored.rows,
@@ -223,6 +223,7 @@ def gather_desk_packet(
                 cfg=cfg,
                 risk=risk,
                 prices=prices,
+                open_orders=open_orders,
             )
             packet.plan_lines = plan.summary_lines()
         except (RuntimeError, AlpacaAPIError, OSError) as exc:

@@ -120,6 +120,97 @@ class OrderResult:
         )
 
 
+@dataclass(frozen=True)
+class OpenOrder:
+    """Working (unfilled or partially filled) order — not yet inventory.
+
+    Used by the planner to reserve cash, avoid double-buys, and only sell
+    remaining shares after pending sells.
+    """
+
+    id: str
+    symbol: str
+    side: str  # buy | sell
+    qty: float  # original share qty (0 if notional-only)
+    filled_qty: float
+    remaining_qty: float
+    notional: float | None
+    filled_avg_price: float | None
+    status: str
+    order_type: str
+
+    @classmethod
+    def from_api(cls, data: dict[str, Any]) -> OpenOrder:
+        """Build from Alpaca order object (open/partial)."""
+        qty = float(data.get("qty") or 0)
+        filled = float(data.get("filled_qty") or 0)
+        # remaining_qty field may exist; else derive
+        remaining = data.get("remaining_qty")
+        if remaining is not None and remaining != "":
+            rem = float(remaining)
+        else:
+            rem = max(0.0, qty - filled)
+        notional_raw = data.get("notional")
+        notional = float(notional_raw) if notional_raw not in (None, "") else None
+        avg = data.get("filled_avg_price")
+        avg_f = float(avg) if avg not in (None, "") else None
+        return cls(
+            id=str(data.get("id") or ""),
+            symbol=str(data.get("symbol") or "").upper(),
+            side=str(data.get("side") or "").lower(),
+            qty=qty,
+            filled_qty=filled,
+            remaining_qty=rem,
+            notional=notional,
+            filled_avg_price=avg_f,
+            status=str(data.get("status") or ""),
+            order_type=str(data.get("type") or ""),
+        )
+
+    def reserved_buy_notional(self, mark_price: float | None) -> float:
+        """Cash reserved by a working buy (remaining size)."""
+        if self.side != "buy":
+            return 0.0
+        if self.remaining_qty > 1e-12 and mark_price and mark_price > 0:
+            return self.remaining_qty * mark_price
+        if self.notional is not None and self.notional > 0:
+            # notional orders: if partially filled, reduce roughly by filled value
+            if self.filled_qty > 0 and self.filled_avg_price:
+                return max(0.0, self.notional - self.filled_qty * self.filled_avg_price)
+            if self.filled_qty <= 1e-12:
+                return self.notional
+        return 0.0
+
+    def pending_sell_qty(self) -> float:
+        """Shares already spoken for by a working sell."""
+        if self.side != "sell":
+            return 0.0
+        return max(0.0, self.remaining_qty)
+
+
+def parse_open_orders(raw: list[dict[str, Any]] | None) -> list[OpenOrder]:
+    """Parse Alpaca open-order dicts into :class:`OpenOrder` (skips terminal)."""
+    out: list[OpenOrder] = []
+    terminal = {"filled", "canceled", "cancelled", "expired", "rejected", "done_for_day"}
+    for row in raw or []:
+        try:
+            oo = OpenOrder.from_api(row)
+        except (TypeError, ValueError, KeyError):
+            continue
+        if oo.status.lower() in terminal:
+            continue
+        if oo.side not in {"buy", "sell"}:
+            continue
+        # still working if remaining shares or unfilled notional buy
+        has_work = oo.remaining_qty > 1e-12 or (
+            oo.side == "buy" and oo.notional is not None and oo.notional > 0 and oo.filled_qty <= 1e-12
+        )
+        if not has_work:
+            continue
+        out.append(oo)
+    return out
+
+
 class AlpacaPaperClient:
     """Thin wrapper over Alpaca paper trading REST endpoints.
 
@@ -181,6 +272,10 @@ class AlpacaPaperClient:
             query={"status": status, "limit": str(limit), "direction": "desc"},
         )
         return list(data or [])
+
+    def list_open_orders(self, *, limit: int = 50) -> list[OpenOrder]:
+        """Return structured working orders (unfilled / partial)."""
+        return parse_open_orders(self.list_orders(status="open", limit=limit))
 
     def submit_market_order(
         self,

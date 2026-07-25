@@ -158,7 +158,7 @@ def page_account() -> None:
         client = AlpacaPaperClient()
         acct = client.get_account()
         positions = client.list_positions()
-        orders = client.list_orders(status="open", limit=50)
+        orders = client.list_open_orders(limit=50)
     except (RuntimeError, AlpacaAPIError, OSError) as exc:
         log.error("account page failed: %s", exc)
         st.error(str(exc))
@@ -191,16 +191,16 @@ def page_account() -> None:
         st.info("No open positions")
 
     if orders:
-        st.write("**Open orders**")
+        st.write("**Open orders** (partial-fill aware)")
         st.dataframe(
             pd.DataFrame(
                 [
                     {
-                        "symbol": o.get("symbol"),
-                        "side": o.get("side"),
-                        "qty": o.get("qty"),
-                        "status": o.get("status"),
-                        "filled": o.get("filled_qty"),
+                        "symbol": o.symbol,
+                        "side": o.side,
+                        "remaining": o.remaining_qty,
+                        "filled": o.filled_qty,
+                        "status": o.status,
                     }
                     for o in orders
                 ]
@@ -237,6 +237,7 @@ def page_plan() -> None:
         client = AlpacaPaperClient()
         acct = client.get_account()
         positions = client.list_positions()
+        open_orders = client.list_open_orders()
         plan = build_trade_plan(
             signals=scored.rows,
             account=acct,
@@ -244,6 +245,7 @@ def page_plan() -> None:
             cfg=cfg,
             risk=risk,
             prices=prices_for_plan(cfg, frames=bars.frames),
+            open_orders=open_orders,
         )
     except (RuntimeError, OSError, ValueError, FileNotFoundError, AlpacaAPIError) as exc:
         log.error("plan page failed: %s", exc)

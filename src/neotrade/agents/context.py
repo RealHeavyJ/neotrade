@@ -78,7 +78,7 @@ def gather_market_context(
         client = AlpacaPaperClient()
         acct = client.get_account()
         positions = client.list_positions()
-        open_orders = client.list_orders(status="open", limit=20)
+        open_orders = client.list_open_orders(limit=20)
         filled_n = len(positions)
         open_n = len(open_orders)
         ctx.account_lines = [
@@ -110,8 +110,8 @@ def gather_market_context(
             ctx.account_lines.append("Open unfilled orders:")
             for o in open_orders[:10]:
                 ctx.account_lines.append(
-                    f"  WORKING {o.get('side')} {o.get('symbol')} qty={o.get('qty')} "
-                    f"status={o.get('status')} filled_qty={o.get('filled_qty', 0)}"
+                    f"  WORKING {o.side} {o.symbol} rem_qty={o.remaining_qty:g} "
+                    f"filled={o.filled_qty:g} status={o.status}"
                 )
         else:
             ctx.account_lines.append("Open unfilled orders: none")
@@ -122,6 +122,7 @@ def gather_market_context(
             cfg=cfg,
             risk=risk,
             prices=prices_for_plan(cfg, frames=bars.frames),
+            open_orders=open_orders,
         )
         ctx.plan_lines = plan.summary_lines()
     except (RuntimeError, AlpacaAPIError, OSError, FileNotFoundError) as exc:
