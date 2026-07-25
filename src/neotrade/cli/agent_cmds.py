@@ -24,6 +24,7 @@ from neotrade.learning.experiments import (
 )
 from neotrade.learning.policy import policy_blurb, record_advice_run
 
+
 def cmd_advise(args: argparse.Namespace) -> int:
     """Run local LangGraph trading expert + performance analyst (Ollama)."""
     model_path = resolve_model_path(args.model)

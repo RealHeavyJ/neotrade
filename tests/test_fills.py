@@ -6,6 +6,7 @@ import pytest
 
 from neotrade.broker.fills import (
     MIN_FILLS_FOR_CALIBRATION,
+    append_fill,
     calibrate_fills,
     effective_slip_bps,
     load_fills,
@@ -14,7 +15,6 @@ from neotrade.broker.fills import (
     parse_filled_order,
     save_calibration,
     slip_bps_adverse,
-    append_fill,
 )
 
 
