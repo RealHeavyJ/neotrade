@@ -11,7 +11,7 @@ import os
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from neotrade.broker.hours import SessionStatus, get_session_status
@@ -156,7 +156,7 @@ class QuoteMonitor:
         moves = self._detect_moves(snap)
         self._tick_index += 1
         tick = MonitorTick(
-            ts=datetime.now(timezone.utc).isoformat(),
+            ts=datetime.now(UTC).isoformat(),
             snapshot=snap,
             session=session,
             moves=moves,

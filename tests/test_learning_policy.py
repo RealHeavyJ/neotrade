@@ -7,10 +7,10 @@ import pytest
 from neotrade.agents.recommend import AdviceReport
 from neotrade.learning.policy import (
     DEFAULT_POLICY,
-    AdviceLearningPolicy,
     KIND_ADVICE_FEEDBACK,
     KIND_ADVICE_RUN,
     NEVER_USE_FOR_LIGHTGBM,
+    AdviceLearningPolicy,
     assert_not_lightgbm_source,
     policy_blurb,
     record_advice_run,

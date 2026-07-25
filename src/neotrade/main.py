@@ -320,7 +320,7 @@ def _cmd_account(_: argparse.Namespace) -> int:
     print(f"open_orders={len(open_orders)}")
     for o in open_orders:
         print(
-            f"  {o.get('side', '?'):<4} {str(o.get('symbol', '')):<6} "
+            f"  {o.get('side', '?'):<4} {o.get('symbol', '')!s:<6} "
             f"qty={o.get('qty')} status={o.get('status')} "
             f"filled={o.get('filled_qty', 0)}"
         )

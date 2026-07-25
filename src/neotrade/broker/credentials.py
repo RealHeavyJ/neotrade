@@ -78,8 +78,7 @@ def load_alpaca_credentials(*, require_paper: bool = True) -> AlpacaCredentials:
         or (PAPER_BASE_URL if paper else LIVE_BASE_URL)
     ).strip().rstrip("/")
     # Users often paste .../v2 from docs; client paths already include /v2/...
-    if base.endswith("/v2"):
-        base = base[: -len("/v2")]
+    base = base.removesuffix("/v2")
 
     if not api_key or not secret:
         raise RuntimeError(
@@ -88,13 +87,12 @@ def load_alpaca_credentials(*, require_paper: bool = True) -> AlpacaCredentials:
         )
 
     is_paper_url = "paper-api.alpaca.markets" in base
-    if require_paper:
-        if not paper or not is_paper_url:
-            raise RuntimeError(
-                "neotrade refuses non-paper Alpaca endpoints. "
-                f"Set ALPACA_PAPER=true and ALPACA_BASE_URL={PAPER_BASE_URL} "
-                f"(got paper={paper}, base_url={base})"
-            )
+    if require_paper and (not paper or not is_paper_url):
+        raise RuntimeError(
+            "neotrade refuses non-paper Alpaca endpoints. "
+            f"Set ALPACA_PAPER=true and ALPACA_BASE_URL={PAPER_BASE_URL} "
+            f"(got paper={paper}, base_url={base})"
+        )
     if is_paper_url:
         paper = True
 

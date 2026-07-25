@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
@@ -379,7 +379,7 @@ def run_desk(
     if save:
         out_dir = project_root() / "data" / "learning"
         out_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         path = out_dir / f"desk_{stamp}.json"
         latest = out_dir / "desk_latest.json"
         payload = report.to_dict()

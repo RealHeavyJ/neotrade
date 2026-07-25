@@ -55,4 +55,4 @@ def test_fit_predict_save_load(tmp_path: Path):
     assert len(scored) == 2
     assert scored[0].proba >= scored[1].proba
     assert len(scored[:1]) == 1
-    assert list(scored)[0].symbol in {"AAA", "BBB"}
+    assert next(iter(scored)).symbol in {"AAA", "BBB"}

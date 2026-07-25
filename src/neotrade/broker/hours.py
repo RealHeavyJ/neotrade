@@ -12,7 +12,7 @@ this module only gates **plan messaging** and **execute**.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from enum import Enum
 from zoneinfo import ZoneInfo
 
@@ -105,7 +105,7 @@ def _as_et(when: datetime | None = None) -> datetime:
     if when is None:
         return datetime.now(tz=ET)
     if when.tzinfo is None:
-        return when.replace(tzinfo=timezone.utc).astimezone(ET)
+        return when.replace(tzinfo=UTC).astimezone(ET)
     return when.astimezone(ET)
 
 

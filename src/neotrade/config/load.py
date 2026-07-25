@@ -57,7 +57,7 @@ def load_tickers_config(path: Path | str | None = None) -> TickersConfig:
     with config_path.open(encoding="utf-8") as fh:
         raw = yaml.safe_load(fh) or {}
     if not isinstance(raw, dict):
-        raise ValueError(f"ticker config must be a mapping: {config_path}")
+        raise TypeError(f"ticker config must be a mapping: {config_path}")
     return TickersConfig.model_validate(raw)
 
 

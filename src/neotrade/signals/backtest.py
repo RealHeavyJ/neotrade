@@ -13,8 +13,9 @@ Does **not** place live/paper orders. Advise prose is never used.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,12 @@ from neotrade.broker.risk import RiskLimits, default_risk_limits, sleeve_map
 from neotrade.config.load import project_root
 from neotrade.config.models import TickersConfig
 from neotrade.logging_config import get_logger
-from neotrade.signals.features import add_cross_section_features, build_features, build_labeled_frame, model_feature_names
+from neotrade.signals.features import (
+    add_cross_section_features,
+    build_features,
+    build_labeled_frame,
+    model_feature_names,
+)
 from neotrade.signals.model import DEFAULT_PARAMS
 from neotrade.signals.regime import detect_regime_from_close_panel
 from neotrade.signals.score import SignalRow, side_from_proba
@@ -552,7 +558,7 @@ def _score_day(
     for i, (_, prow) in enumerate(panel.iterrows()):
         p_model = float(proba[i])
         mom_r = float(prow["cs_rank_ret_20"]) if "cs_rank_ret_20" in prow.index else 0.5
-        if mom_r != mom_r:  # NaN
+        if math.isnan(mom_r):  # NaN
             mom_r = 0.5
         p = float(min(1.0, max(0.0, w_model * p_model + w_mom * mom_r)))
         rows.append(
@@ -906,7 +912,7 @@ def run_portfolio_backtest(
     ]
 
     report = BacktestReport(
-        ts=datetime.now(timezone.utc).isoformat(),
+        ts=datetime.now(UTC).isoformat(),
         config={
             "initial_cash": bt.initial_cash,
             "horizon": bt.horizon,
@@ -1134,7 +1140,7 @@ def save_backtest_report(report: BacktestReport, path: Path | str | None = None)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
     stamped = path.with_name(
-        f"backtest_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        f"backtest_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
     )
     try:
         stamped.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")

@@ -23,7 +23,7 @@ def _frame() -> pd.DataFrame:
 
 
 def test_fetch_uses_cache_when_fresh(tmp_path: Path):
-    from neotrade.data.cache import save_ohlcv, cache_path
+    from neotrade.data.cache import cache_path, save_ohlcv
 
     path = cache_path(tmp_path, "MSFT", "1d", "1y")
     save_ohlcv(path, _frame())
@@ -63,6 +63,5 @@ def test_load_universe_all_fail(tmp_path: Path):
         tickers=[Ticker(symbol="BAD")],
         data=DataSettings(cache_dir=tmp_path),
     )
-    with patch("neotrade.data.fetch.fetch_ohlcv", side_effect=RuntimeError("nope")):
-        with pytest.raises(RuntimeError, match="failed to load"):
-            load_universe_ohlcv(cfg, root=tmp_path)
+    with patch("neotrade.data.fetch.fetch_ohlcv", side_effect=RuntimeError("nope")), pytest.raises(RuntimeError, match="failed to load"):
+        load_universe_ohlcv(cfg, root=tmp_path)
