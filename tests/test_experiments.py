@@ -119,7 +119,7 @@ def test_single_open_discipline(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(log_mod, "project_root", lambda: tmp_path)
     (tmp_path / "data" / "learning").mkdir(parents=True)
 
-    a = open_experiment("hyp-a", source="test")
+    open_experiment("hyp-a", source="test")
     b = open_experiment("hyp-b", source="test", replace_open=True)
     assert b.hypothesis == "hyp-b"
     # a should be abandoned

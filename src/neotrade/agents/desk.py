@@ -13,7 +13,6 @@ They must **never** claim to retrain LightGBM from prose, and must not invent me
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path

@@ -610,7 +610,7 @@ def _cmd_experiment(args: argparse.Namespace) -> int:
                     return 0
                 for exp in done:
                     print(f"completed {exp.id[:8]} outcome={exp.outcome}")
-                print(f"discipline: open_count=0 ok=True")
+                print("discipline: open_count=0 ok=True")
                 return 0
             if args.latest:
                 exp = complete_latest_open(outcome=args.outcome, notes=args.notes or "")
