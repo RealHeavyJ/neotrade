@@ -67,12 +67,53 @@ neotrade advise --mock-llm --rating 4 --notes "clear and useful"
 
 ## Weekly
 
+**One command** (recommended):
+
+```bash
+neotrade weekly              # fetch→train→eval→backtest→desk — never executes
+# exit 0 = bare BT promote PASS · 2 = promote FAIL · 1 = hard error
+```
+
+Or the shell wrapper (good for cron/launchd):
+
+```bash
+./scripts/weekly_promote.sh
+# log: data/learning/weekly_cron.log
+# summary: data/learning/weekly_latest.json
+```
+
+Manual equivalent:
+
 ```bash
 neotrade fetch --force && neotrade train && neotrade eval && neotrade backtest
+neotrade desk
 neotrade bench && pytest -q
 ```
 
-Promote a new model only if **eval** looks sane and **backtest** prints `gate=PASS`.
+Promote a new model only if **`neotrade weekly` exits 0** (or bare `backtest` prints gate=PASS).
+
+### Optional schedule (macOS launchd)
+
+```bash
+# edit paths inside scripts/com.neotrade.weekly.plist if repo is not ~/dev/neotrade
+cp scripts/com.neotrade.weekly.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.neotrade.weekly.plist
+# unload: launchctl unload ~/Library/LaunchAgents/com.neotrade.weekly.plist
+```
+
+Default schedule in the sample plist: **Sunday 18:00** local. Offline: `EXTRA_ARGS='--mock-llm' ./scripts/weekly_promote.sh`.
+
+## Fill slip calibration
+
+Paper fills are logged vs pre-submit mid on `paper-execute`. Report and (when ready) feed BT:
+
+```bash
+neotrade fills              # n, median slip_bps, last fills
+neotrade fills --apply      # only if n≥20 → data/learning/slip_calibration.json
+neotrade backtest           # uses calibrated slip when applied; else 5 bps
+```
+
+`account` prints `fill_calib n=…/20 bt_slip_bps=…`. Prefer execute-time logs over `--backfill` (current quote mid is weak for old fills).
 
 ## Safety
 

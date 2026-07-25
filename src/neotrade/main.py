@@ -25,6 +25,17 @@ from neotrade.broker import (
     get_session_status,
 )
 from neotrade.broker.alpaca import AlpacaAPIError
+from neotrade.broker.fills import (
+    MIN_FILLS_FOR_CALIBRATION,
+    append_fill,
+    calibrate_fills,
+    effective_slip_bps,
+    load_fills,
+    load_saved_calibration,
+    make_observation,
+    parse_filled_order,
+    save_calibration,
+)
 from neotrade.config import default_config_path, load_tickers_config
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.data import fetch_universe_quotes, load_universe_ohlcv, prices_for_plan
@@ -45,6 +56,7 @@ from neotrade.learning.policy import policy_blurb, record_advice_run
 from neotrade.logging_config import get_logger, setup_logging
 from neotrade.monitor import MonitorConfig, QuoteMonitor, default_monitor_config
 from neotrade.monitor.stream import run_stream_cli
+from neotrade.ops.weekly import run_weekly_promote
 from neotrade.perf.bench import run_full_bench
 from neotrade.signals import SignalModel, score_universe
 from neotrade.signals.backtest import BacktestConfig, run_portfolio_backtest, save_backtest_report
@@ -225,7 +237,7 @@ def _cmd_backtest(args: argparse.Namespace) -> int:
         rebalance_every=int(args.rebalance_every),
         num_boost_round=int(args.rounds),
         cost_bps=float(args.cost_bps),
-        slip_bps=float(args.slip_bps),
+        slip_bps=float(args.slip_bps) if args.slip_bps is not None else D.effective_slip_bps(),
         buy_threshold=float(args.buy_threshold) if args.buy_threshold is not None else risk.buy_threshold,
         sell_threshold=float(args.sell_threshold) if args.sell_threshold is not None else risk.sell_threshold,
         fill=str(args.fill),
@@ -366,6 +378,117 @@ def _cmd_account(_: argparse.Namespace) -> int:
         print("note: paper-plan reserves open-buy cash and avoids double-buy/sell")
     if not session.allow_execute:
         print("note: paper execute blocked until US RTH (09:30–16:00 ET); no after-hours")
+    cal = calibrate_fills()
+    slip_eff = effective_slip_bps(fallback=D.BT_SLIP_BPS)
+    print(
+        f"fill_calib n={cal.n}/{cal.min_n} "
+        f"bt_slip_bps={slip_eff:.1f}"
+        + (
+            f" median={cal.median_slip_bps:.1f}"
+            if cal.median_slip_bps is not None
+            else ""
+        )
+    )
+    return 0
+
+
+def _cmd_fills(args: argparse.Namespace) -> int:
+    """Report paper fill slip vs mid; optional apply to BT default."""
+    # 1) existing journal
+    obs = load_fills()
+    # 2) optional backfill from closed orders + live mids
+    if not args.no_broker:
+        try:
+            client = AlpacaPaperClient()
+            closed = client.list_orders(status="closed", limit=int(args.limit))
+        except (RuntimeError, AlpacaAPIError, OSError) as exc:
+            print(f"warn: broker orders unavailable: {exc}", file=sys.stderr)
+            closed = []
+        known = {o.order_id for o in obs if o.order_id}
+        # mids from quotes for symbols we need
+        need_syms: list[str] = []
+        parsed_rows: list[dict] = []
+        for row in closed:
+            p = parse_filled_order(row)
+            if not p or p["order_id"] in known:
+                continue
+            parsed_rows.append(p)
+            if p["symbol"] not in need_syms:
+                need_syms.append(p["symbol"])
+        mids: dict[str, float] = {}
+        if parsed_rows and not args.no_quotes:
+            try:
+                cfg = load_tickers_config(args.config)
+                snap = fetch_universe_quotes(cfg, prefer_alpaca=True, fallback_cache=True)
+                for q in snap.rows:
+                    mid = q.mid or q.display_price()
+                    if mid and mid > 0:
+                        mids[str(q.symbol).upper()] = float(mid)
+            except (RuntimeError, OSError, ValueError) as exc:
+                print(f"warn: quotes for mid: {exc}", file=sys.stderr)
+        added = 0
+        for p in parsed_rows:
+            mid = mids.get(p["symbol"])
+            if mid is None or mid <= 0:
+                continue
+            # current quote mid is weak for old fills — only log if --backfill
+            if not args.backfill:
+                continue
+            try:
+                o = make_observation(
+                    order_id=p["order_id"],
+                    symbol=p["symbol"],
+                    side=p["side"],
+                    fill_px=p["fill_px"],
+                    mid_px=mid,
+                    qty=p["qty"],
+                    source="closed_order_backfill",
+                    status=p["status"],
+                    ts=p.get("filled_at") or None,
+                )
+                append_fill(o)
+                obs.append(o)
+                known.add(o.order_id)
+                added += 1
+            except (ValueError, OSError):
+                continue
+        if args.backfill:
+            print(f"backfill added={added} (quote mid ≈ now — prefer execute-time logs)")
+
+    cal = calibrate_fills(obs, min_n=int(args.min_n))
+    for line in cal.summary_lines():
+        print(line)
+    # show sample
+    show = obs[- int(args.show) :] if obs else []
+    if show:
+        print(f"last {len(show)} fills:")
+        for o in show:
+            print(
+                f"  {o.ts[:19]} {o.side:<4} {o.symbol:<6} "
+                f"fill={o.fill_px:.4f} mid={o.mid_px:.4f} "
+                f"slip={o.slip_bps:+.1f}bps src={o.source}"
+            )
+    slip_now = effective_slip_bps(fallback=D.BT_SLIP_BPS)
+    print(f"effective BT slip_bps now={slip_now:.1f} (package default={D.BT_SLIP_BPS:.1f})")
+    if args.apply:
+        if cal.recommended_slip_bps is None:
+            print(
+                f"refuse --apply: need n≥{cal.min_n} fills with recommendation",
+                file=sys.stderr,
+            )
+            return 2
+        path = save_calibration(cal)
+        print(f"saved calibration: {path}")
+        print(f"BT default slip_bps → {cal.recommended_slip_bps:.1f}")
+    elif cal.recommended_slip_bps is not None:
+        print("tip: neotrade fills --apply  # write slip_calibration.json for BT default")
+    saved = load_saved_calibration()
+    if saved and saved.get("recommended_slip_bps") is not None:
+        print(
+            f"saved calib: n={saved.get('n')} "
+            f"recommended={saved.get('recommended_slip_bps')} "
+            f"ts={str(saved.get('ts') or '')[:19]}"
+        )
     return 0
 
 
@@ -453,6 +576,7 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
         return 0
     errors = 0
     for intent in plan.intents:
+        mid = float(prices.get(intent.symbol.upper()) or 0) if prices else 0.0
         try:
             result = client.submit_market_order(
                 symbol=intent.symbol,
@@ -471,11 +595,52 @@ def _cmd_paper_execute(args: argparse.Namespace) -> int:
                 result.id,
                 result.status,
             )
+            # Log fill vs pre-submit mid when broker reports filled_avg_price
+            _maybe_log_fill_observation(client, result.id, mid_px=mid, source="execute")
         except AlpacaAPIError as exc:
             errors += 1
             log.error("order fail %s: %s", intent.describe(), exc)
             print(f"ORDER FAIL {intent.describe()}: {exc}", file=sys.stderr)
     return 1 if errors else 0
+
+
+def _maybe_log_fill_observation(
+    client: AlpacaPaperClient,
+    order_id: str,
+    *,
+    mid_px: float,
+    source: str = "execute",
+) -> None:
+    """If order has a fill price and mid, append fill observation (best-effort)."""
+    if not order_id or mid_px <= 0:
+        return
+    try:
+        raw = client.get_order(order_id)
+    except (AlpacaAPIError, RuntimeError, OSError) as exc:
+        log.warning("fill observe skip get_order: %s", exc)
+        return
+    parsed = parse_filled_order(raw)
+    if not parsed:
+        # still open — store nothing; fills-report can backfill later
+        return
+    try:
+        obs = make_observation(
+            order_id=parsed["order_id"],
+            symbol=parsed["symbol"],
+            side=parsed["side"],
+            fill_px=parsed["fill_px"],
+            mid_px=mid_px,
+            qty=parsed["qty"],
+            source=source,
+            status=parsed["status"],
+        )
+        append_fill(obs)
+        print(
+            f"  fill-log {obs.side} {obs.symbol} fill={obs.fill_px:.4f} "
+            f"mid={obs.mid_px:.4f} slip={obs.slip_bps:+.1f}bps"
+        )
+    except (ValueError, TypeError, OSError) as exc:
+        log.warning("fill observe skip: %s", exc)
 
 
 def _cmd_session(_: argparse.Namespace) -> int:
@@ -714,6 +879,29 @@ def _cmd_bench(_: argparse.Namespace) -> int:
         print(line)
     print("saved: data/learning/bench_latest.json")
     return 0 if report.ollama_ok or report.signal_score_s is not None else 1
+
+
+def _cmd_weekly(args: argparse.Namespace) -> int:
+    """Weekly promote cadence: fetch→train→eval→backtest→desk. Never executes."""
+    mock = True if args.mock_llm else (False if args.real_llm else None)
+    result = run_weekly_promote(
+        force_fetch=not args.no_force_fetch,
+        skip_desk=bool(args.no_desk),
+        mock_llm=mock,
+        skip_signals=bool(args.no_signals),
+        config=args.config,
+        save=not args.no_save,
+    )
+    for line in result.summary_lines():
+        print(line)
+    if result.promote:
+        print("WEEKLY_PROMOTE_PASS — model ok for paper use under bare BT defaults")
+    else:
+        print(
+            "WEEKLY_PROMOTE_FAIL — do not trust new model; fix gates before execute",
+            file=sys.stderr,
+        )
+    return int(result.exit_code)
 
 
 def _cmd_dashboard(args: argparse.Namespace) -> int:
@@ -990,8 +1178,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument(
         "--slip-bps",
         type=float,
-        default=D.BT_SLIP_BPS,
-        help=f"adverse slip bps (default {D.BT_SLIP_BPS}; use 0 only for ablation)",
+        default=None,
+        help=(
+            f"adverse slip bps (default: fill calibration or {D.BT_SLIP_BPS}; "
+            "use 0 only for ablation)"
+        ),
     )
     p_bt.add_argument(
         "--period",
@@ -1155,6 +1346,58 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_bench = sub.add_parser("bench", help="benchmark local Ollama + LightGBM efficiency")
     p_bench.set_defaults(func=_cmd_bench)
+
+    p_week = sub.add_parser(
+        "weekly",
+        help="weekly promote: fetch→train→eval→backtest→desk (never executes)",
+    )
+    p_week.add_argument("--config", type=str, default=None)
+    p_week.add_argument(
+        "--no-force-fetch",
+        action="store_true",
+        help="fetch without --force (default forces refresh)",
+    )
+    p_week.add_argument("--no-desk", action="store_true", help="skip desk + experiment open")
+    p_week.add_argument("--no-signals", action="store_true", help="skip post-BT signals")
+    p_week.add_argument(
+        "--mock-llm",
+        action="store_true",
+        help="force desk --mock-llm (offline)",
+    )
+    p_week.add_argument(
+        "--real-llm",
+        action="store_true",
+        help="require Ollama desk (fail open to mock only if neither flag)",
+    )
+    p_week.add_argument("--no-save", action="store_true")
+    p_week.set_defaults(func=_cmd_weekly)
+
+    p_fills = sub.add_parser(
+        "fills",
+        help="paper fill slip report / calibrate BT slip_bps (n≥20 to apply)",
+    )
+    p_fills.add_argument("--config", type=str, default=None)
+    p_fills.add_argument("--limit", type=int, default=100, help="closed orders to scan")
+    p_fills.add_argument("--show", type=int, default=10, help="print last N observations")
+    p_fills.add_argument(
+        "--min-n",
+        type=int,
+        default=MIN_FILLS_FOR_CALIBRATION,
+        help=f"fills required before --apply (default {MIN_FILLS_FOR_CALIBRATION})",
+    )
+    p_fills.add_argument(
+        "--apply",
+        action="store_true",
+        help="write slip_calibration.json when n≥min-n (feeds bare backtest default)",
+    )
+    p_fills.add_argument(
+        "--backfill",
+        action="store_true",
+        help="log closed fills vs *current* quote mid (weak; prefer execute-time)",
+    )
+    p_fills.add_argument("--no-broker", action="store_true", help="journal only")
+    p_fills.add_argument("--no-quotes", action="store_true")
+    p_fills.set_defaults(func=_cmd_fills)
 
     p_dash = sub.add_parser("dashboard", help="launch Streamlit UI")
     p_dash.add_argument("--port", type=int, default=8501)

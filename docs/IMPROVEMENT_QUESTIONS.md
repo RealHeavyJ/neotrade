@@ -66,8 +66,8 @@ Use it in weekly reviews and when driving the **desk** agents.
 | Partial-fill aware plan | Matches broker working orders | **Done** |
 | BT slip + 2y default (`defaults.py`) | Strict promote path without flags | **Done** |
 | top_n=7 + rebal=14 under strict 2y BT | Bare promote PASS | **Done** |
-| Full auto weekly: fetch→train→eval→BT→desk | Cadence without babysitting | **Next (T1)** |
-| Calibrate slip_bps from live paper fills | BT matches your fills | Later (T2) |
+| Full auto weekly: `neotrade weekly` | Cadence without babysitting | **Done (T1)** |
+| Calibrate slip_bps from live paper fills | BT matches your fills | **Done (T2)** |
 | Split main.py → cli/ | Maintainability | Later (T4) |
 
 ---

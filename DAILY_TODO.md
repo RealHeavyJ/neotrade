@@ -50,7 +50,8 @@ source .venv/bin/activate    # must source, not execute
 | 2 | Signals | `neotrade signals` |
 | 3 | Dry-run plan | `neotrade paper-plan` |
 | 4 | Desk / narrative | `neotrade desk` (preferred) or `advise` |
-| 5 | Execute only if intentional + RTH + promote | `neotrade paper-execute --confirm` |
+| 5 | Execute only if intentional + RTH + promote | `neotrade paper-execute --confirm` (logs fill slip) |
+| 6 | Optional fill calib | `neotrade fills` · `--apply` when n≥20 |
 
 **Rules:** advise-only most days · execute **RTH only** (`neotrade session`) · advise ≠ train.
 
@@ -68,12 +69,11 @@ source .venv/bin/activate    # must source, not execute
 
 ### Data + model
 
-- [ ] `neotrade fetch --force`
-- [ ] `neotrade train`
-- [ ] `neotrade eval` — note edges
-- [ ] `neotrade backtest` — need **gate=PASS** before trusting new model
-- [ ] `neotrade signals` — sanity
+- [ ] **`neotrade weekly`** (preferred) — fetch→train→eval→backtest→desk; exit 0 = promote PASS  
+  - or manual: `fetch --force` → `train` → `eval` → `backtest` → `desk`
+- [ ] `neotrade signals` — sanity if not already via weekly
 - [ ] `neotrade bench` — Ollama still OK
+- [ ] Optional schedule: `scripts/com.neotrade.weekly.plist` / `./scripts/weekly_promote.sh`
 
 ### Book + risk
 

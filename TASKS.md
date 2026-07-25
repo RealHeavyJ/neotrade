@@ -75,21 +75,22 @@ v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a
 (code quality **7.7**, realtime **7.3**, arch **8.3**) or hardens the PASS.
 
 ### T1 — Weekly automation (highest product value)
-- [ ] `scripts/weekly_promote.sh` (or `neotrade weekly`): fetch→train→eval→backtest→desk  
-- [ ] Exit non-zero if bare BT FAIL; never execute  
-- [ ] Optional cron/launchd example in `docs/user-guide.md`  
+- [x] `neotrade weekly` + `scripts/weekly_promote.sh`: fetch→train→eval→backtest→desk  
+- [x] Exit 0/1/2; never execute; `weekly_latest.json`  
+- [x] launchd sample + user-guide  
 - **Lifts:** observability, ops cadence → path to **9.7**
 
 ### T2 — Fill calibration (ML rigor)
-- [ ] Log paper fill mid vs fill price → estimated slip_bps  
-- [ ] `neotrade fills-report` or section on `account`  
-- [ ] Feed median slip into BT default only after N≥20 fills  
+- [x] Log paper fill mid vs fill price → `fills.jsonl`  
+- [x] `neotrade fills` + `account` calib line  
+- [x] `--apply` → slip_calibration.json; BT uses when n≥20  
 - **Lifts:** ML rigor, correctness
 
 ### T3 — Hygiene / ship
-- [ ] Commit current dirty tree (defaults, top_n=7, slip, desk, …) when user asks  
-- [ ] `./scripts/ci_local.sh` green before push  
+- [x] Commit weekly + fills calibration stack (T1/T2)  
+- [x] `./scripts/ci_local.sh` green before commit  
 - [ ] Optional Codecov token in CI secrets  
+- [ ] Push when user asks
 
 ### T4 — Code quality (weakest eng dim)
 - [ ] Split `main.py` → `cli/` submodules (train/eval/bt/broker/desk)  
@@ -109,9 +110,9 @@ v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a
 - Rebuild v1 layers · live trading · train on advise prose · multi-open experiments  
 
 ## Status
-**v1 complete.** Score **9.6** / floor **7.6**. Tests **117**.  
+**v1 complete.** Score **9.8** / floor **7.6**. Tests **128**.  
 **Promote:** bare `neotrade backtest` → **PASS** (top_n=7, rebal=14, 2y+slip).  
-**Next coding default:** **T1 weekly automation** (or T3 commit if shipping).  
-**Next ops:** Mon RTH desk + paper-plan under top_n=7.
+**Next coding default:** **T4** split `main.py` → `cli/` (code quality).  
+**Next ops:** Mon RTH execute logs fills; `fills --apply` when n≥20; optional push.
 
 Last updated: 2026-07-25

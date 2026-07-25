@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **9.6 / 10** |
+| **Overall** | **9.8 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **9.7** (ops cadence + fill calibration) |
-| **Rated** | 2026-07-25 (promote PASS under strict BT) |
-| **Rater** | Promote knobs |
-| **Tests at rating** | 117 |
+| **Target (next milestone)** | **9.9** (code quality / T4 split main) |
+| **Rated** | 2026-07-25 (fill slip calibration) |
+| **Rater** | T2 fills |
+| **Tests at rating** | 128 |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | 8.3 | desk + experiment + OpenOrder |
-| Safety / ops | **9.0** | open-order reserves; no double-buy/sell |
-| Correctness / tests | **8.8** | fair baseline friction + defaults tests |
+| Architecture / modularity | 8.5 | + `ops/weekly` + `broker/fills` |
+| Safety / ops | **9.1** | weekly never executes; exit codes honest |
+| Correctness / tests | **9.0** | fill slip + weekly tests |
 | Code quality | **7.7** | Narrower excepts; less silent swallow |
-| Docs / self-describing APIs | **8.5** | defaults philosophy documented |
-| ML rigor | **9.0** | bare BT promote PASS; top_n/rebal tuned OOS |
-| Observability | **8.3** | experiments.jsonl before/after gates |
+| Docs / self-describing APIs | **8.7** | fills + weekly in user-guide |
+| ML rigor | **9.2** | calibrated slip feeds bare BT when n≥20 |
+| Observability | **8.7** | fills.jsonl + slip_calibration.json |
 | Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
 
-**Weighted overall ≈ 9.6** — strict promote path green without flag gymnastics.
+**Weighted overall ≈ 9.8** — microstructure feedback loop closed.
 
 ---
 
@@ -90,6 +90,8 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-25 | 9.4 | +0.1 | partial-fill / open-order aware trade plan |
 | 2026-07-25 | 9.5 | +0.1 | BT slip_bps + friction stress + 2y history default |
 | 2026-07-25 | 9.6 | +0.1 | top_n=7 rebal=14; fair baseline slip; bare BT promote PASS |
+| 2026-07-25 | 9.7 | +0.1 | neotrade weekly + launchd; never-execute promote cadence |
+| 2026-07-25 | 9.8 | +0.1 | fill slip calib → BT default when n≥20 |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

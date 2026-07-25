@@ -35,7 +35,7 @@ BT_RETRAIN_EVERY: Final[int] = 21
 BT_REBALANCE_EVERY: Final[int] = 14  # less churn; better 2y promote stability
 BT_ROUNDS: Final[int] = 100
 BT_COST_BPS: Final[float] = 5.0
-BT_SLIP_BPS: Final[float] = 5.0
+BT_SLIP_BPS: Final[float] = 5.0  # package default; overridden by fill calibration when ready
 BT_COST_STRESS_BPS: Final[float] = 10.0
 BT_SLIP_STRESS_BPS: Final[float] = 15.0
 BT_FILL: Final[str] = "next_open"
@@ -45,6 +45,18 @@ BT_MIN_SHARPE: Final[float] = 0.35
 BT_USE_REGIME: Final[bool] = True
 BT_REQUIRE_BOTH_BASELINES: Final[bool] = False  # True = harder; opt-in via --require-both
 BT_PERIOD: Final[str] = DATA_PERIOD
+# Fill calibration (see broker/fills.py)
+FILL_CALIBRATION_MIN_N: Final[int] = 20
+
+
+def effective_slip_bps() -> float:
+    """BT slip: calibrated from paper fills when n≥20, else ``BT_SLIP_BPS``."""
+    try:
+        from neotrade.broker.fills import effective_slip_bps as _eff
+
+        return float(_eff(fallback=BT_SLIP_BPS))
+    except (ImportError, OSError, ValueError, TypeError):
+        return float(BT_SLIP_BPS)
 
 # --- Risk / plan (also in tickers.yaml; keep aligned) ---
 RISK_PLAN_MODE: Final[str] = "ranked"

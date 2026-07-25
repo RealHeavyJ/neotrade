@@ -79,6 +79,30 @@ neotrade eval --folds 4 --horizon 5 --rounds 100
 
 ### Portfolio backtest (model promotion)
 
+### Weekly promote automation
+
+```bash
+neotrade weekly                 # production cadence; never executes
+./scripts/weekly_promote.sh     # cron/launchd wrapper → weekly_cron.log
+```
+
+| Exit | Meaning |
+|------|---------|
+| 0 | bare `backtest` promote PASS |
+| 2 | BT finished but promote FAIL |
+| 1 | hard fail (fetch/train/eval) |
+
+Implementation: `src/neotrade/ops/weekly.py`. Sample launchd: `scripts/com.neotrade.weekly.plist`.
+
+### Fill slip calibration
+
+| Piece | Role |
+|-------|------|
+| `broker/fills.py` | observe slip_bps, calibrate, `effective_slip_bps()` |
+| `neotrade fills` | report; `--apply` when n≥20 |
+| `paper-execute` | logs fill vs mid when order fills |
+| bare `backtest` | `defaults.effective_slip_bps()` |
+
 ### Defaults philosophy
 
 **Bare commands use production-strict settings** (`neotrade.defaults`).  

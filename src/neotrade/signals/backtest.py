@@ -85,7 +85,7 @@ class BacktestConfig:
             rebalance_every=d.BT_REBALANCE_EVERY,
             num_boost_round=d.BT_ROUNDS,
             cost_bps=d.BT_COST_BPS,
-            slip_bps=d.BT_SLIP_BPS,
+            slip_bps=d.effective_slip_bps(),
             buy_threshold=d.RISK_BUY_THRESHOLD,
             sell_threshold=d.RISK_SELL_THRESHOLD,
             fill=d.BT_FILL,

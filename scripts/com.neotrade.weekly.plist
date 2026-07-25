@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Optional launchd job: weekly promote Sunday 18:00 local.
+  Install (user agent):
+    cp scripts/com.neotrade.weekly.plist ~/Library/LaunchAgents/
+    # edit WorkingDirectory + path to weekly_promote.sh if needed
+    launchctl load ~/Library/LaunchAgents/com.neotrade.weekly.plist
+  Unload:
+    launchctl unload ~/Library/LaunchAgents/com.neotrade.weekly.plist
+  Logs: ~/dev/neotrade/data/learning/weekly_cron.log
+  NEVER executes trades.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.neotrade.weekly</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/jbreazil/dev/neotrade/scripts/weekly_promote.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/jbreazil/dev/neotrade</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>18</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/jbreazil/dev/neotrade/data/learning/weekly_launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jbreazil/dev/neotrade/data/learning/weekly_launchd.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+  </dict>
+</dict>
+</plist>

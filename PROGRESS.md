@@ -30,13 +30,25 @@ windows 3/3 PASS · promote=True · slip/cost stress ok
 ```
 
 ### Stack
-| Quality **9.6** / floor 7.6 | Tests **117** |
+| Quality **9.8** / floor 7.6 | Tests **128** |
 
 ### Next session default
-1. **Dev T1:** `scripts/weekly_promote.sh` (fetch→train→eval→BT→desk, no execute)  
-2. Or **T3:** commit dirty tree when asked  
-3. Ops Mon: desk + paper-plan (top_n=7)  
-4. Later: T2 fill calibration · T4 split `main.py`  
+1. Ops Mon: desk + paper-plan; execute logs fills  
+2. Optional: push commit · `fills --apply` after n≥20  
+3. Dev: **T4** split `main.py` → `cli/`  
+
+### 2026-07-25 T3 commit
+- Shipped T1 weekly + T2 fills on main (local commit)
+
+### 2026-07-25 T2 fill calibration
+- `broker/fills.py` + `neotrade fills` / `--apply` (n≥20)  
+- paper-execute logs slip vs mid; account shows calib  
+- bare BT slip = `defaults.effective_slip_bps()`  
+
+### 2026-07-25 T1 weekly automation
+- `neotrade weekly` / `scripts/weekly_promote.sh` / launchd plist  
+- exit 0=promote PASS · 2=FAIL · never execute  
+- `data/learning/weekly_latest.json`
 
 ### Promote only if
 bare `backtest` → PASS (no `--fast`).

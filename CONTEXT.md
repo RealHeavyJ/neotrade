@@ -21,6 +21,7 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Score blend | Regime-aware model/mom blend (default ~40/60) |
 | Promote | bare `neotrade backtest` exit 0 (2y+slip+windows+stress); flags = ablation only |
 | Defaults | `src/neotrade/defaults.py` — production-strict; CLI opt-out |
+| Slip | `defaults.effective_slip_bps()` from fill calib when n≥20 |
 | Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
 | Monitoring | REST `monitor` + WS `stream` (IEX); quotes anytime free MD allows; execute RTH-only |
 

@@ -277,6 +277,13 @@ class AlpacaPaperClient:
         """Return structured working orders (unfilled / partial)."""
         return parse_open_orders(self.list_orders(status="open", limit=limit))
 
+    def get_order(self, order_id: str) -> dict[str, Any]:
+        """Fetch one order by id (for fill price after submit)."""
+        data = self._request("GET", f"/v2/orders/{order_id}")
+        if not isinstance(data, dict):
+            raise AlpacaAPIError(500, "empty order response")
+        return data
+
     def submit_market_order(
         self,
         *,
