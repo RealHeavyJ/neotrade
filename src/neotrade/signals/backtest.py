@@ -867,7 +867,7 @@ def run_portfolio_backtest(
                 w_model=w_model,
                 w_mom=w_mom,
             )
-        except Exception as exc:  # noqa: BLE001 — keep BT running
+        except (ValueError, KeyError, TypeError, RuntimeError) as exc:
             log.warning("score day failed %s: %s", asof.date(), exc)
             continue
         if not signals:

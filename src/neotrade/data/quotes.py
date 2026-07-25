@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.config.models import TickersConfig
 from neotrade.data.alpaca_md import AlpacaMarketDataClient
 from neotrade.data.cache import cache_path, load_cached_ohlcv
+
+
+def quote_age_seconds(ts: str | None, *, now: datetime | None = None) -> float | None:
+    """Seconds since quote timestamp; None if unparseable/empty."""
+    if not ts or not str(ts).strip():
+        return None
+    raw = str(ts).strip()
+    try:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        ref = now or datetime.now(UTC)
+        return max(0.0, (ref - dt.astimezone(UTC)).total_seconds())
+    except (TypeError, ValueError):
+        return None
 
 
 @dataclass

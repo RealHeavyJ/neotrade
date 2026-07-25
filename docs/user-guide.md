@@ -41,6 +41,17 @@ neotrade advise           # optional narrative
 
 Or: `neotrade dashboard` → http://localhost:8501
 
+## Research loop (Mon–Fri model/agent work)
+
+```bash
+neotrade status                      # promote + top_n/rebal + ages + fills n
+neotrade desk                        # agents propose EXPERIMENT
+# apply one hypothesis, then:
+neotrade train && neotrade eval && neotrade eval --ablate && neotrade backtest
+neotrade experiment complete --latest
+neotrade desk                        # next step
+```
+
 ## Desk (smarter agents)
 
 ```bash

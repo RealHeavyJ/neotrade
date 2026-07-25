@@ -61,6 +61,27 @@ CS_FEATURE_COLUMNS: tuple[str, ...] = (
 
 ALL_MODEL_FEATURES: tuple[str, ...] = FEATURE_COLUMNS + CS_FEATURE_COLUMNS
 
+# Named groups for ``neotrade eval --ablate`` (drop one group at a time)
+FEATURE_GROUPS: dict[str, tuple[str, ...]] = {
+    "returns": ("ret_1", "ret_3", "ret_5", "ret_10", "ret_20", "ret_60"),
+    "vol": ("vol_10", "vol_20", "vol_ratio_5_20", "atr_14_pct", "high_low_range"),
+    "trend": (
+        "rsi_14",
+        "sma_ratio_10",
+        "sma_ratio_20",
+        "sma_ratio_50",
+        "ema_ratio_12",
+        "macd_hist",
+        "bb_pct_20",
+        "dist_high_20",
+        "dist_low_20",
+        "mom_vol_20",
+        "trend_strength_20",
+    ),
+    "volume": ("volume_z_20", "volume_ratio_5_20", "close_open_ret", "gap_ret"),
+    "cs": CS_FEATURE_COLUMNS,
+}
+
 
 def _rsi(close: pd.Series, window: int = 14) -> pd.Series:
     """Wilder-style RSI via EWM of gains/losses."""

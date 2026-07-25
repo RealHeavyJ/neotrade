@@ -14,27 +14,40 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-07-25) — RESTART HERE
+## Session end checkpoint (2026-07-25 EOD) — RESTART HERE
 
-### Shipped
-- Full v1 + P0–P4 + desk + experiments + open-order plan  
-- BT slip/fees + fair baseline friction + **`defaults.py`**  
-- **Promote knobs:** `top_n=7`, `rebalance_every=14` (was 5/10)  
-- Bare `neotrade backtest` → **gate=PASS** (2y, 3/3 windows, friction stress ok)  
-- Exp `cc4a6aaa` rebal-7 → **fail** (worse full sample; closed)
+### Shipped (this long session)
+- Promote path: top_n=7, rebal=14, 2y+slip, fair baselines → **bare BT PASS**  
+- T1 weekly · T2 fills · T4 cli split · T5 ablate · T6 status/stale/dashboard  
+- Agent **expert review** + desk **BLIND_SPOT**  
+- Future backlog **adopted:** T8 paper eras (snapshot→diff→reset) · T7 logs when pain  
 
-### Live BT (strict defaults)
+### Live
 ```
-signal +180.9%  eq +154.3%  mom +117.4%  edge_eq +26.6%
-windows 3/3 PASS · promote=True · slip/cost stress ok
+promote=PASS · top_n=7 rebal=14 · score 10.0 · 134 tests
 ```
 
-### Stack
-| Quality **9.9** / floor 7.6 | Tests **128** |
+### Next session default (Mon research — not eng)
+```
+neotrade status
+neotrade desk
+# one experiment only →
+neotrade train && neotrade eval && neotrade backtest
+neotrade experiment complete --latest
+```
+Execute only RTH + `--confirm` + promote yes. `fills --apply` when n≥20.
 
-### Next session default
-1. Ops Mon: desk + paper-plan; execute logs fills  
-2. Optional: commit/push T4 · `fills --apply` after n≥20  
+### Later eng (not next)
+T8a snapshot/diff → T8c reset · T7 when learning/ grows — `docs/FUTURE_EPOCHS_AND_LOGS.md`
+
+### Uncommitted
+Working tree may still have local changes — **commit/push when you want** (not done this close).
+
+### 2026-07-25 research-ready eng pack
+- `learning/promote_status.py` + `neotrade status`  
+- Dashboard promote panel; quote age/stale on monitor + Quotes  
+- `eval --ablate` feature groups; excepts narrowed  
+- Desk packet: promote/freshness/defaults/fills  
 
 ### 2026-07-25 T4 split CLI
 - `main.py` ~50 lines; handlers in `neotrade/cli/*`  

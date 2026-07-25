@@ -3,10 +3,11 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-25 (Sat) — strict BT **promote PASS**  
-**Book snapshot:** equity **~$98,909** · cash **$20,208** · **10 positions** · **0 open orders**  
-**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · sig +181% vs eq +154% / mom +117% · 3/3 win)  
-**Next RTH:** 2026-07-27 09:30 ET — paper-plan may rebalance toward 7 names
+**Last ops review:** 2026-07-25 (Sat) — session closed; eng research-ready  
+**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · 3/3 windows)  
+**Next RTH:** 2026-07-27 09:30 ET  
+**Mon loop:** `status` → `desk` → one exp → train/eval/BT → `experiment complete`  
+**Do not Mon:** T7/T8 eng plumbing (future only)
 
 ---
 
@@ -51,7 +52,8 @@ source .venv/bin/activate    # must source, not execute
 | 3 | Dry-run plan | `neotrade paper-plan` |
 | 4 | Desk / narrative | `neotrade desk` (preferred) or `advise` |
 | 5 | Execute only if intentional + RTH + promote | `neotrade paper-execute --confirm` (logs fill slip) |
-| 6 | Optional fill calib | `neotrade fills` · `--apply` when n≥20 |
+| 6 | Promote snapshot | `neotrade status` |
+| 7 | Optional fill calib | `neotrade fills` · `--apply` when n≥20 |
 
 **Rules:** advise-only most days · execute **RTH only** (`neotrade session`) · advise ≠ train.
 

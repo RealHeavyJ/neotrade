@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from neotrade import __version__
+from neotrade import defaults as D
 from neotrade.agents import run_advise
 from neotrade.agents.llm import MockLLM, OllamaClient, OllamaConfig
 from neotrade.broker import (
@@ -20,7 +21,9 @@ from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.data import fetch_universe_quotes, load_universe_ohlcv, prices_for_plan
+from neotrade.data.quotes import quote_age_seconds
 from neotrade.learning.policy import advice_events, policy_blurb, record_advice_run
+from neotrade.learning.promote_status import load_promote_status
 from neotrade.logging_config import get_logger, setup_logging
 from neotrade.signals import SignalModel, score_universe
 
@@ -91,6 +94,40 @@ def page_overview() -> None:
         "Paper **execute** only 09:30–16:00 ET weekdays (no pre/after-hours)."
     )
 
+    st.subheader("Promote / production defaults")
+    ps = load_promote_status(model_path=DEFAULT_MODEL)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        if ps.promote is None:
+            st.metric("Promote", "n/a")
+        else:
+            st.metric("Promote", "PASS" if ps.promote else "FAIL")
+    with c2:
+        st.metric("top_n", f"{ps.defaults_top_n}")
+    with c3:
+        st.metric("rebalance_every", f"{ps.defaults_rebalance_every}d")
+    with c4:
+        st.metric("BT slip_bps", f"{ps.slip_bps_effective:.1f}")
+    st.caption(
+        f"plan_mode=`{D.RISK_PLAN_MODE}` · fills n={ps.fill_n}/{ps.fill_min_n} · "
+        f"last BT top_n={ps.top_n} rebal={ps.rebalance_every}"
+    )
+    if ps.promote is True:
+        st.success(" · ".join(ps.summary_lines()[:4]))
+    elif ps.promote is False:
+        st.error(" · ".join(ps.summary_lines()[:5]))
+    else:
+        st.info(" · ".join(ps.summary_lines()[:4]))
+    ages = []
+    if ps.bt_age_hours is not None:
+        ages.append(f"BT {ps.bt_age_hours:.0f}h")
+    if ps.eval_age_hours is not None:
+        ages.append(f"eval {ps.eval_age_hours:.0f}h")
+    if ps.model_age_hours is not None:
+        ages.append(f"model {ps.model_age_hours:.0f}h")
+    if ages:
+        st.caption("Artifact age: " + " · ".join(ages) + " (stale if >7d)")
+
 
 def page_quotes() -> None:
     st.subheader("Live quotes (Alpaca market data)")
@@ -110,8 +147,28 @@ def page_quotes() -> None:
         log.error("quotes page failed: %s", exc)
         st.error(str(exc))
         return
-    df = pd.DataFrame([r.to_dict() for r in snap.rows])
-    st.write(f"Feed: `{snap.feed or 'n/a'}` · priced={df['price'].notna().sum()}/{len(df)}")
+    rows = []
+    stale_n = 0
+    cache_n = 0
+    for r in snap.rows:
+        d = r.to_dict()
+        age = quote_age_seconds(r.ts)
+        d["age_s"] = None if age is None else round(age, 1)
+        if age is not None and age >= 120:
+            stale_n += 1
+        src = (r.source or "").lower()
+        if "cache" in src:
+            cache_n += 1
+        rows.append(d)
+    df = pd.DataFrame(rows)
+    st.write(
+        f"Feed: `{snap.feed or 'n/a'}` · priced={df['price'].notna().sum()}/{len(df)} · "
+        f"stale≥120s={stale_n} · cache={cache_n}"
+    )
+    if stale_n or cache_n:
+        st.warning(
+            f"{stale_n} stale quote(s) · {cache_n} cache-backed — treat as delayed, not live tape"
+        )
     st.dataframe(df, use_container_width=True, hide_index=True)
     if snap.errors:
         with st.expander("Errors / notes"):

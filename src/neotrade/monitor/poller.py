@@ -18,12 +18,13 @@ from neotrade.broker.hours import SessionStatus, get_session_status
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.config.models import TickersConfig
-from neotrade.data.quotes import QuoteSnapshot, fetch_universe_quotes
+from neotrade.data.quotes import QuoteSnapshot, fetch_universe_quotes, quote_age_seconds
 from neotrade.logging_config import get_logger
 
 # Free-tier friendly default; override via NEOTRADE_MONITOR_INTERVAL or CLI
 DEFAULT_INTERVAL_S = 15.0
 MIN_INTERVAL_S = 5.0
+DEFAULT_STALE_S = 120.0
 log = get_logger("monitor")
 
 
@@ -37,6 +38,7 @@ class MonitorConfig:
         prefer_alpaca: Use Alpaca MD when possible.
         fallback_cache: Fall back to cached closes if MD fails.
         log_path: Optional JSONL path for ticks (None = no file log).
+        stale_s: Flag symbols whose quote ts is older than this many seconds.
     """
 
     interval_s: float = DEFAULT_INTERVAL_S
@@ -44,6 +46,7 @@ class MonitorConfig:
     prefer_alpaca: bool = True
     fallback_cache: bool = True
     log_path: Path | None = None
+    stale_s: float = DEFAULT_STALE_S
 
     def clamped_interval(self) -> float:
         """Return interval not below :data:`MIN_INTERVAL_S`."""
@@ -82,6 +85,9 @@ class MonitorTick:
     session: SessionStatus
     moves: list[MoveAlert] = field(default_factory=list)
     tick_index: int = 0
+    max_age_s: float | None = None
+    stale_symbols: list[str] = field(default_factory=list)
+    cache_symbols: list[str] = field(default_factory=list)
 
     def priced_count(self) -> int:
         return sum(1 for r in self.snapshot.rows if r.price is not None)
@@ -89,10 +95,15 @@ class MonitorTick:
     def summary_line(self) -> str:
         sess = "RTH" if self.session.allow_execute else self.session.phase.value
         move_s = f" moves={len(self.moves)}" if self.moves else ""
+        age_s = ""
+        if self.max_age_s is not None:
+            age_s = f" max_age={self.max_age_s:.0f}s"
+        stale_s = f" stale={len(self.stale_symbols)}" if self.stale_symbols else ""
+        cache_s = f" cache={len(self.cache_symbols)}" if self.cache_symbols else ""
         return (
             f"tick={self.tick_index} ts={self.ts} feed={self.snapshot.feed or 'n/a'} "
             f"priced={self.priced_count()}/{len(self.snapshot.rows)} "
-            f"session={sess}{move_s}"
+            f"session={sess}{move_s}{age_s}{stale_s}{cache_s}"
         )
 
     def to_log_dict(self) -> dict:
@@ -107,6 +118,9 @@ class MonitorTick:
             "n_symbols": len(self.snapshot.rows),
             "moves": [asdict(m) for m in self.moves],
             "errors": list(self.snapshot.errors),
+            "max_age_s": self.max_age_s,
+            "stale_symbols": list(self.stale_symbols),
+            "cache_symbols": list(self.cache_symbols),
             "prices": {
                 r.symbol: r.price for r in self.snapshot.rows if r.price is not None
             },
@@ -155,12 +169,29 @@ class QuoteMonitor:
         session = self._session()
         moves = self._detect_moves(snap)
         self._tick_index += 1
+        now = datetime.now(UTC)
+        ages: list[float] = []
+        stale: list[str] = []
+        cache: list[str] = []
+        thr = float(self.config.stale_s)
+        for r in snap.rows:
+            src = (r.source or "").lower()
+            if src.startswith("cache") or "cache" in src:
+                cache.append(r.symbol)
+            age = quote_age_seconds(r.ts, now=now)
+            if age is not None:
+                ages.append(age)
+                if thr > 0 and age >= thr:
+                    stale.append(r.symbol)
         tick = MonitorTick(
-            ts=datetime.now(UTC).isoformat(),
+            ts=now.isoformat(),
             snapshot=snap,
             session=session,
             moves=moves,
             tick_index=self._tick_index,
+            max_age_s=max(ages) if ages else None,
+            stale_symbols=stale,
+            cache_symbols=cache,
         )
         self._prev_prices = {
             r.symbol: r.price for r in snap.rows if r.price is not None

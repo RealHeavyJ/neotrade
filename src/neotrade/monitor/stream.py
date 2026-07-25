@@ -484,18 +484,18 @@ def run_stream_cli(
             stream._stop.set()
             try:
                 return await task
-            except Exception:  # noqa: BLE001
+            except (asyncio.CancelledError, TimeoutError, RuntimeError, OSError):
                 return stream.state
         except asyncio.CancelledError:
             stream._stop.set()
             return await task
-        except Exception:
+        except (RuntimeError, OSError, ValueError):
             # propagate run() failures (e.g. symbol limit)
             if not task.done():
                 stream._stop.set()
                 try:
                     await task
-                except Exception:  # noqa: BLE001, S110
+                except (asyncio.CancelledError, TimeoutError, RuntimeError, OSError):
                     pass
             raise
 

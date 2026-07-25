@@ -22,6 +22,10 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Promote | bare `neotrade backtest` exit 0 (2y+slip+windows+stress); flags = ablation only |
 | Defaults | `src/neotrade/defaults.py` — production-strict; CLI opt-out |
 | Slip | `defaults.effective_slip_bps()` from fill calib when n≥20 |
+| Hardware | MacBook Neo · A18 Pro · 8 GB — log/epoch designs must fit local RAM |
+| Future eng | T8 paper eras first (snapshot/diff/reset); T7 logs when pain — design doc |
+| Expert agents | Feature requests get review (`FEATURE_REQUEST_REVIEW.md`); BLIND_SPOT on desk |
+| Boss metric | bare `backtest` promote PASS — not vanity maturity scores |
 | Session | **US RTH only** for execute (09:30–16:00 ET); no pre/after-hours trading |
 | Monitoring | REST `monitor` + WS `stream` (IEX); quotes anytime free MD allows; execute RTH-only |
 

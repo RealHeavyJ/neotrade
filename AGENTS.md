@@ -2,15 +2,31 @@
 
 For every coding/planning agent (Grok Build CLI, subagents, future tools).
 
+## Expert advisor role (feature requests & product ideas)
+
+When the user proposes a **feature, architecture, or process** (not only when coding):
+
+1. **Do not** implement immediately unless they say “go / build / ship”.  
+2. **Evaluate** against project goals: paper edge, promote honesty, safety, Neo 8GB local, score non-regression.  
+3. Reply with a short **expert review** using the template in `docs/FEATURE_REQUEST_REVIEW.md`:  
+   - Goal alignment (helps / neutral / distracts)  
+   - What they may be missing (risks, simpler alternatives, trading/ML traps)  
+   - Priority vs current default track  
+   - Recommend: **do now / later / never / reshape**  
+4. Domains in scope: software eng, paper trading ops, ML evaluation, data/logs, agent process, local Mac constraints.  
+5. Be direct; challenge bad ideas; strengthen good ones. No sycophancy.  
+6. Still obey **Do not** (no live trading, no train-on-advise, no secrets).
+
 ## Before any code change
 
 1. Read **`QUALITY_SCORE.md`** (score floor + non-regression policy).  
-2. Read **`TASKS.md`** top + “close senior-review gaps” if doing quality work.  
-3. Prefer one track that **improves** the score (P0–P4). Do not rebuild finished v1 layers.
+2. Read **`TASKS.md`** top + future tracks if relevant.  
+3. Prefer one track that **improves** the score. Do not rebuild finished v1 layers.  
+4. If the request is a **new idea**, run the expert review first (above).
 
 ## Quality rule (non-negotiable)
 
-- **Current overall: 9.9 / 10. Floor: 7.6.**  
+- **Current overall: 10.0 / 10. Floor: 7.6.**  
 - Changes must **hold or raise** the overall score.  
 - **Never** ship a change that would drop overall below the floor.  
 - Do not regress safety (paper-only, `--confirm`), tests, or locked decisions in `CONTEXT.md`.  

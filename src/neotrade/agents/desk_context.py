@@ -177,7 +177,7 @@ def gather_desk_packet(
             base_max_pos=risk.max_position_pct,
         )
         packet.regime_line = reg.summary_line()
-    except Exception as exc:  # noqa: BLE001
+    except (ValueError, KeyError, TypeError, RuntimeError) as exc:
         packet.regime_line = f"regime error: {exc}"
         packet.notes.append(str(exc))
 
@@ -238,6 +238,17 @@ def gather_desk_packet(
     if bt:
         packet.backtest_lines, packet.promote_ok = _backtest_lines(bt)
 
+    # Shared promote/freshness/defaults for Monday research desk
+    try:
+        from neotrade.learning.promote_status import load_promote_status
+
+        ps = load_promote_status(model_path=model_path)
+        packet.notes.extend(ps.summary_lines())
+        if ps.promote is not None:
+            packet.promote_ok = ps.promote
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        packet.notes.append(f"promote_status: {exc}")
+
     # Experiment discipline status (agents must complete opens)
     try:
         from neotrade.learning.experiments import discipline_status, reconcile_open_experiments
@@ -255,7 +266,7 @@ def gather_desk_packet(
             packet.notes.append(
                 f"experiments: last {rc.get('id')} → {rc.get('outcome')} ({rc.get('hyp')})"
             )
-    except Exception as exc:  # noqa: BLE001
+    except (OSError, ValueError, KeyError, RuntimeError) as exc:
         packet.notes.append(f"experiments: status error {exc}")
 
     return packet

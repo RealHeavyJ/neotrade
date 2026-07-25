@@ -5,12 +5,27 @@ import argparse
 import sys
 from pathlib import Path
 
-from neotrade.cli.common import log
+from neotrade.cli.common import DEFAULT_MODEL_PATH, log, resolve_model_path
 from neotrade.config import load_tickers_config
+from neotrade.learning.promote_status import load_promote_status
 from neotrade.monitor import MonitorConfig, QuoteMonitor, default_monitor_config
 from neotrade.monitor.stream import run_stream_cli
 from neotrade.ops.weekly import run_weekly_promote
 from neotrade.perf.bench import run_full_bench
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Promote gate + defaults + artifact freshness (research snapshot)."""
+    model = resolve_model_path(getattr(args, "model", None) or str(DEFAULT_MODEL_PATH))
+    ps = load_promote_status(model_path=model)
+    for line in ps.summary_lines():
+        print(line)
+    if ps.promote is True:
+        return 0
+    if ps.promote is False:
+        return 2
+    return 1
+
 
 def cmd_bench(_: argparse.Namespace) -> int:
     """Benchmark local Ollama latency and LightGBM score speed."""

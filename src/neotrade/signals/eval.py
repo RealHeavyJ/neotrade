@@ -454,3 +454,138 @@ def run_signal_eval(
     if save:
         save_eval_report(report)
     return report
+
+
+@dataclass
+class AblationRow:
+    """One leave-group-out ablation result vs full feature set."""
+
+    group: str
+    n_features: int
+    mean_accuracy: float
+    edge_vs_momentum: float
+    edge_vs_always_long: float
+    mean_brier: float
+    delta_acc: float
+    delta_edge_mom: float
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class AblationReport:
+    """Feature-group ablation summary for research."""
+
+    ts: str
+    baseline_acc: float
+    baseline_edge_mom: float
+    rows: list[AblationRow] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+    def summary_lines(self) -> list[str]:
+        lines = [
+            f"ablation @ {self.ts}",
+            f"baseline acc={self.baseline_acc:.4f} edge_mom={self.baseline_edge_mom:+.4f}",
+            f"{'GROUP':<10} {'N':>3} {'ACC':>8} {'ΔACC':>8} {'EDGE_MOM':>9} {'ΔEDGE':>8}",
+        ]
+        for r in self.rows:
+            lines.append(
+                f"{r.group:<10} {r.n_features:>3} {r.mean_accuracy:>8.4f} "
+                f"{r.delta_acc:>+8.4f} {r.edge_vs_momentum:>+9.4f} {r.delta_edge_mom:>+8.4f}"
+            )
+        # most harmful drop = largest negative delta_acc when group removed
+        if self.rows:
+            worst = min(self.rows, key=lambda x: x.delta_acc)
+            lines.append(
+                f"most_valuable_group={worst.group} "
+                f"(dropping it Δacc={worst.delta_acc:+.4f})"
+            )
+        for n in self.notes:
+            lines.append(f"note: {n}")
+        return lines
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ts": self.ts,
+            "baseline_acc": self.baseline_acc,
+            "baseline_edge_mom": self.baseline_edge_mom,
+            "rows": [r.to_dict() for r in self.rows],
+            "notes": list(self.notes),
+        }
+
+
+def run_feature_ablation(
+    frames: dict[str, pd.DataFrame],
+    *,
+    horizon: int = 5,
+    n_folds: int = 4,
+    num_boost_round: int = 80,
+    relative_label: bool = True,
+    groups: dict[str, tuple[str, ...]] | None = None,
+    save: bool = True,
+) -> AblationReport:
+    """Leave-one-group-out ablation using walk-forward eval.
+
+    Dropping a group that hurts accuracy a lot means that group was valuable.
+    """
+    from neotrade.signals.features import FEATURE_GROUPS, model_feature_names
+
+    group_map = dict(groups or FEATURE_GROUPS)
+    full = model_feature_names(include_cs=True)
+    base = walk_forward_eval(
+        frames,
+        horizon=horizon,
+        n_folds=n_folds,
+        num_boost_round=num_boost_round,
+        feature_names=full,
+        relative_label=relative_label,
+    )
+    rows: list[AblationRow] = []
+    notes: list[str] = [
+        "Δ = ablated_run − baseline (negative Δacc ⇒ group was useful)",
+        f"baseline n_features={len(full)}",
+    ]
+    for name, cols in group_map.items():
+        drop = set(cols)
+        subset = [c for c in full if c not in drop]
+        if len(subset) < 3:
+            notes.append(f"skip {name}: too few features left ({len(subset)})")
+            continue
+        try:
+            rep = walk_forward_eval(
+                frames,
+                horizon=horizon,
+                n_folds=n_folds,
+                num_boost_round=num_boost_round,
+                feature_names=subset,
+                relative_label=relative_label,
+            )
+        except (ValueError, RuntimeError) as exc:
+            notes.append(f"skip {name}: {exc}")
+            continue
+        rows.append(
+            AblationRow(
+                group=name,
+                n_features=len(subset),
+                mean_accuracy=rep.mean_accuracy,
+                edge_vs_momentum=rep.edge_vs_momentum,
+                edge_vs_always_long=rep.edge_vs_always_long,
+                mean_brier=rep.mean_brier,
+                delta_acc=rep.mean_accuracy - base.mean_accuracy,
+                delta_edge_mom=rep.edge_vs_momentum - base.edge_vs_momentum,
+            )
+        )
+    rows.sort(key=lambda r: r.delta_acc)
+    report = AblationReport(
+        ts=datetime.now(UTC).isoformat(),
+        baseline_acc=base.mean_accuracy,
+        baseline_edge_mom=base.edge_vs_momentum,
+        rows=rows,
+        notes=notes,
+    )
+    if save:
+        out = project_root() / "data" / "learning" / "ablation_latest.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report.to_dict(), indent=2) + "\n", encoding="utf-8")
+    return report

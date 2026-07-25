@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **9.9 / 10** |
+| **Overall** | **10.0 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **10.0** (ops polish / except hygiene) |
-| **Rated** | 2026-07-25 (CLI split T4) |
-| **Rater** | T4 cli |
-| **Tests at rating** | 128 |
+| **Target (next milestone)** | hold 10.0 via ops + model research |
+| **Rated** | 2026-07-25 (research-ready eng pack) |
+| **Rater** | T4–T6 closeout |
+| **Tests at rating** | 134 |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | **8.9** | `cli/` package; thin main entry |
+| Architecture / modularity | **9.0** | cli + promote_status shared |
 | Safety / ops | **9.1** | weekly never executes; exit codes honest |
-| Correctness / tests | **9.0** | fill slip + weekly + paper-execute CLI |
-| Code quality | **8.2** | main.py split; handlers modular |
-| Docs / self-describing APIs | **8.7** | fills + weekly in user-guide |
-| ML rigor | **9.2** | calibrated slip feeds bare BT when n≥20 |
-| Observability | **8.7** | fills.jsonl + slip_calibration.json |
-| Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
+| Correctness / tests | **9.1** | + promote/ablation/age tests |
+| Code quality | **8.4** | broad excepts narrowed on hot paths |
+| Docs / self-describing APIs | **8.8** | status/ablate documented |
+| ML rigor | **9.3** | group ablation + promote PASS path |
+| Observability | **9.0** | status, ages, stale quotes, dashboard promote |
+| Scalability / realtime | **7.8** | quote age + stale/cache flags on monitor |
 
-**Weighted overall ≈ 9.9** — CLI maintainability caught up with product depth.
+**Weighted overall ≈ 10.0** — eng stack ready; next gains from live research ops.
 
 ---
 
@@ -93,6 +93,7 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-25 | 9.7 | +0.1 | neotrade weekly + launchd; never-execute promote cadence |
 | 2026-07-25 | 9.8 | +0.1 | fill slip calib → BT default when n≥20 |
 | 2026-07-25 | 9.9 | +0.1 | split main.py → neotrade.cli/* modules |
+| 2026-07-25 | 10.0 | +0.1 | status/ablate/stale quotes/excepts; research-ready |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

@@ -6,7 +6,7 @@
 [![pytest](https://img.shields.io/badge/tests-94%20passed-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![coverage](https://img.shields.io/badge/coverage-68%25-yellow)](https://codecov.io/gh/RealHeavyJ/neotrade)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![Quality](https://img.shields.io/badge/quality_score-9.9%2F10-brightgreen)](QUALITY_SCORE.md)
+[![Quality](https://img.shields.io/badge/quality_score-10.0%2F10-brightgreen)](QUALITY_SCORE.md)
 [![Paper only](https://img.shields.io/badge/trading-paper%20only-orange)](docs/user-guide.md)
 [![Local LLM](https://img.shields.io/badge/LLM-Ollama%20local-purple)](docs/dev-guide.md)
 [![RTH gate](https://img.shields.io/badge/execute-US%20RTH%20only-critical)](docs/user-guide.md)
@@ -52,6 +52,8 @@ neotrade eval               # walk-forward vs baselines (ML rigor)
 neotrade backtest           # strict promote path (2y+slip+windows — no flags needed)
 neotrade weekly             # fetch→train→eval→backtest→desk (never executes)
 neotrade fills              # paper slip report; --apply when n≥20
+neotrade status             # promote + defaults + artifact age
+neotrade eval --ablate      # feature-group ablation (research)
 # neotrade backtest --fast  # smoke only, not for promote
 neotrade signals            # score universe
 # Paper (after copying .env.example -> .env with paper keys):

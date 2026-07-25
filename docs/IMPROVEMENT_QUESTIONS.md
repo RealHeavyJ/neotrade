@@ -3,6 +3,11 @@
 This is a living checklist for making neotrade **smarter** — not busier.
 Use it in weekly reviews and when driving the **desk** agents.
 
+## Expert review of your ideas
+
+Coding agents must critique feature requests (see `AGENTS.md` + `docs/FEATURE_REQUEST_REVIEW.md`).
+Desk QUANT/CRITIC also emit **BLIND_SPOT** — things you may miss that hurt edge or waste time.
+
 ## What “Llama trains itself” really means (safe version)
 
 | Can do (good) | Must not do |
@@ -69,6 +74,8 @@ Use it in weekly reviews and when driving the **desk** agents.
 | Full auto weekly: `neotrade weekly` | Cadence without babysitting | **Done (T1)** |
 | Calibrate slip_bps from live paper fills | BT matches your fills | **Done (T2)** |
 | Split main.py → cli/ | Maintainability | **Done (T4)** |
+| Scalable learning logs (rotate/archive/DuckDB) | Neo 8GB; unbounded JSON | **Future T7** |
+| Paper epochs snapshot/reset/diff | Clean-slate tests + maturity | **Future T8** |
 
 ---
 

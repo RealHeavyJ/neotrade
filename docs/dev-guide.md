@@ -79,6 +79,14 @@ neotrade eval --folds 4 --horizon 5 --rounds 100
 
 ### Portfolio backtest (model promotion)
 
+### Research tooling
+
+| Command | Use |
+|---------|-----|
+| `neotrade status` | promote PASS/FAIL, defaults, artifact age, fill n |
+| `neotrade eval --ablate` | leave-group-out feature value (`ablation_latest.json`) |
+| `learning/promote_status.py` | shared by desk + dashboard |
+
 ### CLI layout
 
 ```

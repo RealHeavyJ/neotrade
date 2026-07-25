@@ -16,7 +16,14 @@ from neotrade.cli.broker_cmds import (
 from neotrade.cli.common import DEFAULT_MODEL_PATH, cmd_version
 from neotrade.cli.data_cmds import cmd_fetch, cmd_quotes, cmd_tickers
 from neotrade.cli.ml_cmds import cmd_backtest, cmd_eval, cmd_signals, cmd_train
-from neotrade.cli.ops_cmds import cmd_bench, cmd_dashboard, cmd_monitor, cmd_stream, cmd_weekly
+from neotrade.cli.ops_cmds import (
+    cmd_bench,
+    cmd_dashboard,
+    cmd_monitor,
+    cmd_status,
+    cmd_stream,
+    cmd_weekly,
+)
 
 # re-export for callers that expect version on parser module
 __all__ = ["build_parser", "cmd_version"]
@@ -154,6 +161,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--absolute-label",
         action="store_true",
         help="eval with absolute up/down labels instead of relative",
+    )
+    p_eval.add_argument(
+        "--ablate",
+        action="store_true",
+        help="feature-group leave-one-out ablation (research; writes ablation_latest.json)",
     )
     p_eval.add_argument("--no-save", action="store_true", help="skip writing eval_latest.json")
     p_eval.set_defaults(func=cmd_eval)
@@ -353,6 +365,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_exp_show = exp_sub.add_parser("show", help="show one experiment JSON")
     p_exp_show.add_argument("--id", type=str, required=True)
     p_exp_show.set_defaults(func=cmd_experiment)
+
+    p_status = sub.add_parser(
+        "status",
+        help="promote gate + defaults + artifact age (research snapshot)",
+    )
+    p_status.add_argument("--model", type=str, default=str(DEFAULT_MODEL_PATH))
+    p_status.set_defaults(func=cmd_status)
 
     p_bench = sub.add_parser("bench", help="benchmark local Ollama + LightGBM efficiency")
     p_bench.set_defaults(func=cmd_bench)

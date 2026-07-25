@@ -133,7 +133,8 @@ def score_universe(
             w_model = reg.w_model
             w_mom = reg.w_mom
             log.debug("%s", reg.summary_line())
-        except Exception:  # noqa: BLE001
+        except (ValueError, KeyError, TypeError, RuntimeError) as exc:
+            log.warning("regime blend fallback defaults: %s", exc)
             w_model, w_mom = 0.40, 0.60
     total_w = float(w_model) + float(w_mom)
     if total_w <= 0:

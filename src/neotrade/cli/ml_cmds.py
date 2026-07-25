@@ -13,7 +13,7 @@ from neotrade.data import load_universe_ohlcv
 from neotrade.learning.log import append_retrain_event
 from neotrade.signals import SignalModel, score_universe
 from neotrade.signals.backtest import BacktestConfig, run_portfolio_backtest, save_backtest_report
-from neotrade.signals.eval import run_signal_eval
+from neotrade.signals.eval import run_feature_ablation, run_signal_eval
 
 def cmd_train(args: argparse.Namespace) -> int:
     """Fit LightGBM on cached bars and write ``models/signal.txt``."""
@@ -61,6 +61,25 @@ def cmd_eval(args: argparse.Namespace) -> int:
     if bars.errors:
         for err in bars.errors:
             print(f"warn: {err}", file=sys.stderr)
+    if getattr(args, "ablate", False):
+        try:
+            ab = run_feature_ablation(
+                bars.frames,
+                horizon=args.horizon,
+                n_folds=args.folds,
+                num_boost_round=min(int(args.rounds), 80),
+                relative_label=not args.absolute_label,
+                save=not args.no_save,
+            )
+        except (ValueError, RuntimeError) as exc:
+            log.error("ablation failed: %s", exc)
+            print(f"ablation failed: {exc}", file=sys.stderr)
+            return 1
+        for line in ab.summary_lines():
+            print(line)
+        if not args.no_save:
+            print("saved: data/learning/ablation_latest.json")
+        return 0
     try:
         report = run_signal_eval(
             bars.frames,

@@ -71,48 +71,60 @@ moves quality toward 8.5+ without rebuilding v1.
 
 ## Next dev tracks (post-promote) — pick one
 
-v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a weak dimension
-(code quality **7.7**, realtime **7.3**, arch **8.3**) or hardens the PASS.
+v1 + P0–P4 + T1–T6 eng **done**. Next week = **ops + model/agent research** only.
 
-### T1 — Weekly automation (highest product value)
-- [x] `neotrade weekly` + `scripts/weekly_promote.sh`: fetch→train→eval→backtest→desk  
-- [x] Exit 0/1/2; never execute; `weekly_latest.json`  
-- [x] launchd sample + user-guide  
-- **Lifts:** observability, ops cadence → path to **9.7**
+### T1–T6 (shipped)
+- [x] T1 weekly · T2 fills · T3 commit · T4 cli split + except narrow  
+- [x] T5 `neotrade eval --ablate` + FEATURE_GROUPS  
+- [x] T6 promote panel + quote age/stale · `neotrade status` · desk promote packet  
+- [ ] Optional: Codecov token · purged CV (later if needed)
 
-### T2 — Fill calibration (ML rigor)
-- [x] Log paper fill mid vs fill price → `fills.jsonl`  
-- [x] `neotrade fills` + `account` calib line  
-- [x] `--apply` → slip_calibration.json; BT uses when n≥20  
-- **Lifts:** ML rigor, correctness
+### Next week (human + agents — not plumbing)
+1. Mon RTH: desk · paper-plan · execute intentional (logs fills)  
+2. Research loop: `status` → experiment open → train/eval/ablate/backtest → complete  
+3. `neotrade weekly` keeps promote honest  
+4. `fills --apply` when n≥20  
 
-### T3 — Hygiene / ship
-- [x] Commit weekly + fills calibration stack (T1/T2)  
-- [x] `./scripts/ci_local.sh` green before commit  
-- [ ] Optional Codecov token in CI secrets  
-- [ ] Push when user asks
+---
 
-### T4 — Code quality (weakest eng dim)
-- [x] Split `main.py` → `cli/` (common, data, ml, broker, agent, ops, parser)  
-- [ ] Kill remaining broad excepts; type-narrow public APIs  
-- **Lifts:** code quality **7.7 → ~8.2**, arch
+## Future eng tracks (NOT this week — schedule after research week)
 
-### T5 — ML depth (optional, not blocking)
-- [ ] Purged CV / embargo beyond expanding WF  
-- [ ] Feature ablation report (`neotrade eval --ablate`)  
-- [ ] Keep promote PASS on next weekly refresh (regression check)
+Hardware target: **MacBook Neo · Apple A18 Pro · 8 GB RAM · 6 cores**.  
+Design brief: `docs/FUTURE_EPOCHS_AND_LOGS.md`.
 
-### T6 — Realtime polish (optional)
-- [ ] Desk/monitor: stale-quote age + “book not fully streamed” warning  
-- [ ] Dashboard: show promote gate + top_n/rebal from defaults  
+### T7 — Scalable learning log store (adopted: wait for pain)
+**Trigger to start:** learning/ ≫ ~50–100MB, or monitor JSONL hurts Neo, or `logs stats` would be useful weekly.  
+**Not Mon priority** — ~0.7MB today.
 
-### Do not
-- Rebuild v1 layers · live trading · train on advise prose · multi-open experiments  
+**Direction (Neo 8GB):** JSONL hot → rotate/compress → archive stamped JSON → optional DuckDB query. Cap **monitor** first.  
+See `docs/FUTURE_EPOCHS_AND_LOGS.md`.
+
+### T8 — Paper eras (adopted reshape)
+**Name:** paper **eras** (not vanity “maturity engine”).  
+**Boss metric remains:** bare `backtest` promote PASS — era diffs are secondary.
+
+**Build order when scheduled:**
+1. `epoch snapshot` (book + gates + model hash)  
+2. `epoch diff` on **numbers** (eval edges, BT, promote, equity/DD, fills)  
+3. `epoch reset-paper --confirm` (liquidate/verify flat; snapshot required)  
+4. Desk may read last diff → **one** experiment only  
+
+**Never:** train LightGBM on era prose · auto-tune from narrative · multi-open exps  
+
+### Agent advisor (adopted — live now)
+- [x] `AGENTS.md` expert review before building features  
+- [x] `docs/FEATURE_REQUEST_REVIEW.md`  
+- [x] Desk QUANT/CRITIC **BLIND_SPOT**  
+
+### Do not (always)
+- Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**v1 complete.** Score **9.9** / floor **7.6**. Tests **128**.  
-**Promote:** bare `neotrade backtest` → **PASS** (top_n=7, rebal=14, 2y+slip).  
-**Next coding default:** optional except-narrowing · or ops Mon.  
-**Next ops:** Mon RTH; `fills --apply` when n≥20.
+**Session closed 2026-07-25.** Score **10.0** · tests **134** · promote path green.  
+**Next (default): Mon RTH research week** — not T7/T8 eng.  
+```
+status → desk → one experiment → train/eval[/ablate]/backtest → experiment complete
+```
+**Later eng:** T8 snapshot/diff first · T7 when log pain · reset last.
 
 Last updated: 2026-07-25
