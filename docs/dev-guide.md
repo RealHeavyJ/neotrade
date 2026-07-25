@@ -280,12 +280,31 @@ neotrade advise --rating 4 --notes "useful"
 
 ## Tests & CI
 
+**Always run the CI mirror before push** (prevents “works on my machine / red Actions”):
+
 ```bash
-pytest -q
+./scripts/ci_local.sh
+# equivalent core steps:
 ruff check src/neotrade tests
 pytest -q --cov=neotrade --cov-report=term-missing
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`): matrix Python **3.11 / 3.12**, ruff, pytest-cov, Codecov upload (optional repo secret `CODECOV_TOKEN`).
+GitHub Actions (`.github/workflows/ci.yml`): matrix Python **3.11 / 3.12**, **ruff** (fails job), pytest-cov, Codecov (optional `CODECOV_TOKEN`).
+
+Optional git hooks (once per clone):
+
+```bash
+pip install -e ".[dev]"
+pre-commit install          # ruff on commit
+pre-commit install --hook-type pre-push   # pytest on push
+```
 
 Fetch tests mock the network; model tests use synthetic OHLCV; agents use MockLLM.
+
+### Why CI failed before (lessons)
+
+| Failure | Cause | Prevention |
+|---------|--------|------------|
+| Missing `neotrade.data` | `.gitignore` `data/` hid package | Ignore only `/data/` (repo root) |
+| Ruff 48 errors on 3.12 | Lint never run before push | `ci_local.sh` + mandatory ruff in AGENTS |
+| SSL on Mac only | Unit tests mock HTTP | Keep certifi + regression test on `context=` |

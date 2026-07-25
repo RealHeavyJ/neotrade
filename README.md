@@ -105,8 +105,9 @@ Advise is **narrative only** — it does not retrain LightGBM. Train only via `n
 | **Paper only / RTH** | Safety posture: no live trading; execute only US regular hours |
 
 ```bash
-# same checks as CI (local)
+# same checks as CI (local) — run before every push
 source .venv/bin/activate
-ruff check src/neotrade tests
-pytest -q --cov=neotrade --cov-report=term-missing
+./scripts/ci_local.sh
+# or: ruff check src/neotrade tests && pytest -q --cov=neotrade
+# optional: pre-commit install
 ```

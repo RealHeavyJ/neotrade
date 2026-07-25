@@ -1,0 +1,17 @@
+# Optional: pip install pre-commit && pre-commit install
+# Blocks commits that would fail CI ruff/pytest collection.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.2
+    hooks:
+      - id: ruff
+        args: [check, --fix, src/neotrade, tests]
+        pass_filenames: false
+  - repo: local
+    hooks:
+      - id: pytest-quick
+        name: pytest -q
+        entry: bash -c 'source .venv/bin/activate 2>/dev/null; pytest -q'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

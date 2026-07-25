@@ -19,10 +19,15 @@ For every coding/planning agent (Grok Build CLI, subagents, future tools).
 
 ## After code changes
 
-1. `source .venv/bin/activate && pytest -q`  
-2. `ruff check src/neotrade tests` when practical  
-3. If architecture/quality shifted: update `QUALITY_SCORE.md` score log (honest)  
-4. Touch `PROGRESS.md` / `TASKS.md` only as needed — keep memory tight (`TOKEN_MANAGEMENT.md`)
+1. **Mandatory CI mirror** (same as GitHub Actions — do not skip):  
+   ```bash
+   source .venv/bin/activate
+   ./scripts/ci_local.sh
+   # or: ruff check src/neotrade tests && pytest -q
+   ```  
+2. If architecture/quality shifted: update `QUALITY_SCORE.md` score log (honest)  
+3. Touch `PROGRESS.md` / `TASKS.md` only as needed — keep memory tight (`TOKEN_MANAGEMENT.md`)  
+4. **Never push** if ruff or pytest fails locally — CI will fail the same way  
 
 ## Session close checklist (mandatory)
 
@@ -30,9 +35,9 @@ Run this **before ending any coding or planning session** that changed code, con
 
 ### 1. Verify (if code changed)
 
-- [ ] `source .venv/bin/activate && pytest -q` (must pass)  
-- [ ] `ruff check src/neotrade tests` when practical  
+- [ ] `./scripts/ci_local.sh` **or** `ruff check src/neotrade tests && pytest -q` (both must pass)  
 - [ ] No secrets / `.env` staged for commit  
+- [ ] Optional: `pre-commit install` once per clone (blocks bad commits)  
 
 ### 2. Memory (keep tight — do not rewrite history)
 
