@@ -12,20 +12,21 @@ from neotrade.broker import (
     build_trade_plan,
 )
 from neotrade.cli.broker_cmds import cmd_paper_execute as _cmd_paper_execute
-from neotrade.cli.common import DEFAULT_MODEL_PATH, cmd_version as _cmd_version, log
+from neotrade.cli.common import DEFAULT_MODEL_PATH, log
+from neotrade.cli.common import cmd_version as _cmd_version
 from neotrade.cli.common import load_signals_for_paper as _load_signals_for_paper
 from neotrade.cli.parser import build_parser
 from neotrade.logging_config import setup_logging
 
 __all__ = [
-    "main",
-    "build_parser",
+    "DEFAULT_MODEL_PATH",
+    "AlpacaPaperClient",
     "_cmd_paper_execute",
     "_load_signals_for_paper",
     "assert_execute_allowed",
-    "AlpacaPaperClient",
+    "build_parser",
     "build_trade_plan",
-    "DEFAULT_MODEL_PATH",
+    "main",
 ]
 
 

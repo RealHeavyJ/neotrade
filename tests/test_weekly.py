@@ -71,7 +71,7 @@ def test_weekly_pipeline_argv_has_no_execute(tmp_path, monkeypatch):
 
     def runner(argv):
         calls.append(list(argv))
-        return 0 if argv[0] != "backtest" else 0
+        return 0
 
     run_weekly_promote(runner=runner, mock_llm=True, save=False)
     flat = [" ".join(c) for c in calls]

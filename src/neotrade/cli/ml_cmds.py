@@ -15,6 +15,7 @@ from neotrade.signals import SignalModel, score_universe
 from neotrade.signals.backtest import BacktestConfig, run_portfolio_backtest, save_backtest_report
 from neotrade.signals.eval import run_feature_ablation, run_signal_eval
 
+
 def cmd_train(args: argparse.Namespace) -> int:
     """Fit LightGBM on cached bars and write ``models/signal.txt``."""
     cfg = load_tickers_config(args.config)

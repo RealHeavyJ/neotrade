@@ -209,8 +209,8 @@ def _percentile(sorted_vals: list[float], q: float) -> float:
     if len(sorted_vals) == 1:
         return sorted_vals[0]
     idx = q * (len(sorted_vals) - 1)
-    lo = int(math.floor(idx))
-    hi = int(math.ceil(idx))
+    lo = math.floor(idx)
+    hi = math.ceil(idx)
     if lo == hi:
         return sorted_vals[lo]
     w = idx - lo

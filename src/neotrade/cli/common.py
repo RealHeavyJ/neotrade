@@ -4,13 +4,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from neotrade import __version__
 from neotrade.broker import default_risk_limits
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
 from neotrade.data import load_universe_ohlcv, prices_for_plan
 from neotrade.logging_config import get_logger
 from neotrade.signals import SignalModel, score_universe
-from neotrade import __version__
 
 DEFAULT_MODEL_PATH = Path("models/signal.txt")
 log = get_logger("cli")

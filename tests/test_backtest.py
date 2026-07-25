@@ -6,17 +6,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from neotrade.broker.plan import OrderIntent
 from neotrade.broker.risk import RiskLimits
 from neotrade.config.models import RiskSettings, Ticker, TickersConfig
 from neotrade.signals.backtest import (
     BacktestConfig,
     StrategyMetrics,
+    _apply_intents,
     apply_slippage,
     evaluate_gate,
     run_portfolio_backtest,
-    _apply_intents,
 )
-from neotrade.broker.plan import OrderIntent
 
 
 def _synth(n: int = 200, seed: int = 0, drift: float = 0.0004) -> pd.DataFrame:

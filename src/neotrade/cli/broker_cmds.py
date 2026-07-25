@@ -26,6 +26,7 @@ from neotrade.cli.common import load_signals_for_paper, log
 from neotrade.config import load_tickers_config
 from neotrade.data import fetch_universe_quotes
 
+
 def cmd_account(_: argparse.Namespace) -> int:
     """Show paper account equity, filled positions, and open orders."""
     session = get_session_status()

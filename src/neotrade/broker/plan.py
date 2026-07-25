@@ -113,8 +113,10 @@ class TradePlan:
     def summary_lines(self) -> list[str]:
         """Multi-line summary for CLI and agent context."""
         lines = [
-            f"equity=${self.equity:,.2f} cash=${self.cash:,.2f} "
-            f"reserved_open_buys=${self.reserved_buy_cash:,.2f}",
+            (
+                f"equity=${self.equity:,.2f} cash=${self.cash:,.2f} "
+                f"reserved_open_buys=${self.reserved_buy_cash:,.2f}"
+            ),
             f"sleeves: growth=${self.growth_mv:,.2f} defensive=${self.defensive_mv:,.2f}",
             f"intents: {len(self.intents)}",
         ]
