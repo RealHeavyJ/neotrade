@@ -43,9 +43,13 @@ neotrade advise | monitor | stream | bench | dashboard
 ```
 
 ### Next session default
-1. Ops Mon: `DAILY_TODO` + `neotrade desk`  
-2. Experiment ledger (track desk EXPERIMENT outcomes)  
-3. Re-run `backtest` after weekly train  
+1. Ops Mon: `DAILY_TODO` + `neotrade desk` + experiment complete after trials  
+2. Re-run `backtest` after weekly train  
+
+### 2026-07-25 experiment ledger
+- `neotrade experiment open|complete|list|snapshot`
+- Desk auto-opens EXPERIMENT; complete compares gate snapshots
+- `scripts/run_desk.sh` for optional cron (no execute)
 
 ### 2026-07-25 desk (smarter agents)
 - `neotrade desk`: ops → quant → PM → critic on fact packet  

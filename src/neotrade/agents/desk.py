@@ -406,5 +406,26 @@ def run_desk(
             )
         except OSError as exc:
             log.warning("desk learning log failed: %s", exc)
+        # Discipline: reconcile orphans, then at most one open experiment
+        try:
+            from neotrade.learning.experiments import (
+                discipline_status,
+                maybe_open_from_desk_report,
+                reconcile_open_experiments,
+            )
+
+            abandoned = reconcile_open_experiments()
+            if abandoned:
+                log.warning("desk reconciled abandoned=%s open experiments", len(abandoned))
+            exp = maybe_open_from_desk_report(report.experiment, source="desk")
+            if exp is not None:
+                log.info("desk experiment id=%s status=%s", exp.id[:8], exp.status)
+            status = discipline_status()
+            if not status["disciplined"]:
+                report.errors.append(
+                    f"experiment discipline fail: {status['open_count']} open"
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("desk experiment discipline skipped: %s", exc)
 
     return report

@@ -10,7 +10,7 @@ For every coding/planning agent (Grok Build CLI, subagents, future tools).
 
 ## Quality rule (non-negotiable)
 
-- **Current overall: 9.2 / 10. Floor: 7.6.**  
+- **Current overall: 9.3 / 10. Floor: 7.6.**  
 - Changes must **hold or raise** the overall score.  
 - **Never** ship a change that would drop overall below the floor.  
 - Do not regress safety (paper-only, `--confirm`), tests, or locked decisions in `CONTEXT.md`.  
@@ -42,6 +42,8 @@ Run this **before ending any coding or planning session** that changed code, con
 - [ ] **`CONTEXT.md`**: only if a **locked decision** changed (broker, labels, gates, etc.).  
 - [ ] **`DAILY_TODO.md`**: only if ops cadence or weekly commands changed.  
 - [ ] **`TESTING.md` / docs**: only if new tests or user-facing CLI behavior shipped.  
+- [ ] **Experiments:** `neotrade experiment list --status open` must show **0 or 1** open.  
+      If orphans: `neotrade experiment complete --all` or `reconcile`. **Never leave multi-open.**
 
 ### 3. Hand-off line (end of agent reply)
 
@@ -58,6 +60,7 @@ State in one short block:
 - Duplicate the same status into every markdown file  
 - Rebuild finished v1 layers “for cleanliness”  
 - Leave TASKS with no clear next item after coding work  
+- Leave **open experiment rows** unfinished (complete, abandon, or reconcile)
 
 ## Do not
 

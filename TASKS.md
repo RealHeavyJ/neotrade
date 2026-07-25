@@ -70,8 +70,8 @@ moves quality toward 8.5+ without rebuilding v1.
 ## Status
 **v1 complete.** Score **9.1** / floor **7.6**.  
 **2026-07-25 model track:** regime + multi-window stable gate → **promote=True** (3/3 windows PASS, cost stress ok).  
-**Next:** experiment ledger (desk EXPERIMENT → result); optional scheduled desk; ops Mon.  
+**Next:** ops Mon + use experiment loop; optional partial-fills / longer history.  
 **Promote:** `neotrade backtest` exit 0 (full + stable gates).  
-**Desk:** `neotrade desk` shipped (ops/quant/PM/critic).
+**Shipped:** desk + **experiment ledger** + `scripts/run_desk.sh`.
 
 Last updated: 2026-07-25

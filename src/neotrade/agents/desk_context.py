@@ -232,4 +232,24 @@ def gather_desk_packet(
     if bt:
         packet.backtest_lines, packet.promote_ok = _backtest_lines(bt)
 
+    # Experiment discipline status (agents must complete opens)
+    try:
+        from neotrade.learning.experiments import discipline_status, reconcile_open_experiments
+
+        reconcile_open_experiments()
+        st = discipline_status()
+        if st["open_count"] == 0:
+            packet.notes.append("experiments: none open (disciplined)")
+        else:
+            packet.notes.append(
+                f"experiments: OPEN {st['open_ids'][0]} — {st['open_hypotheses'][0]} "
+                "(complete after train/eval/backtest)"
+            )
+        for rc in st.get("recent_complete") or []:
+            packet.notes.append(
+                f"experiments: last {rc.get('id')} → {rc.get('outcome')} ({rc.get('hyp')})"
+            )
+    except Exception as exc:  # noqa: BLE001
+        packet.notes.append(f"experiments: status error {exc}")
+
     return packet

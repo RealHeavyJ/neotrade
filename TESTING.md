@@ -25,6 +25,8 @@ Last full run (2026-07-19): **35 passed**.
 | Regime | `test_regime.py` |
 | Logging (P2) | `test_logging_config.py` |
 | Advise learning policy (P3) | `test_learning_policy.py` |
+| Desk multi-agent | `test_desk.py` |
+| Experiment ledger | `test_experiments.py` |
 | Integration smoke | `scripts/smoke_integration.py` (manual) |
 | Agents | `test_agents.py` (incl. ScoreResult + gather context regressions) |
 | Bench / learning | `test_bench.py`, `test_learning.py` |

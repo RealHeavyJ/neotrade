@@ -61,8 +61,9 @@ Use it in weekly reviews and when driving the **desk** agents.
 | Regime filter | Avoids one-size-fits-all risk | **Done** |
 | Ranked top-N plan | Aligns book with scores | **Done** |
 | **`neotrade desk` multi-agent** | Ops/quant/PM/critic on real packet | **Done** |
-| Experiment ledger (desk EXPERIMENT → result) | Closes the improve loop | Next |
-| Auto weekly job: fetch→train→eval→BT→desk | Active without babysitting | Next |
+| **Experiment ledger** (`neotrade experiment`) | Desk EXPERIMENT → before/after gates | **Done** |
+| Scheduled desk script | `scripts/run_desk.sh` (no execute) | **Done** |
+| Full auto weekly: fetch→train→eval→BT→desk | Still human-gated train | Next |
 | Longer history / more regimes | Harder, more honest PASS | Later |
 | Partial-fill aware plan | Matches real broker state | Later |
 | Slippage model calibrated to your fills | BT closer to paper reality | Later |
@@ -79,4 +80,14 @@ neotrade desk                 # or --mock-llm offline
 # Run only experiments that keep paper-only + gates honest
 ```
 
-If EXPERIMENT says “try rebalance_every=7”, change config or CLI flags, re-run BT, then desk again. **That** is local-LLM-driven improvement — process control, not magic self-training.
+If EXPERIMENT says “try rebalance_every=7”:
+
+```bash
+neotrade desk                                    # opens ledger row automatically
+# apply change, then:
+neotrade train && neotrade eval && neotrade backtest
+neotrade experiment complete --latest            # records pass/fail vs before
+neotrade desk                                    # next recommendation
+```
+
+**That** is local-LLM-driven improvement — process control, not magic self-training.

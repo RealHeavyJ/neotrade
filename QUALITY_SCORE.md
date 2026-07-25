@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **9.2 / 10** |
+| **Overall** | **9.3 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **9.4** (experiment ledger + scheduled desk) |
-| **Rated** | 2026-07-25 (desk multi-agent) |
-| **Rater** | Desk track: smarter active agents |
-| **Tests at rating** | 102 passed |
+| **Target (next milestone)** | **9.4** (longer history / fill realism) |
+| **Rated** | 2026-07-25 (experiment ledger) |
+| **Rater** | Closed improve loop |
+| **Tests at rating** | 102+; experiment tests |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | 8.3 | desk packet + 4-role graph |
+| Architecture / modularity | 8.3 | desk packet + experiment ledger |
 | Safety / ops | **8.9** | desk blocks execute off RTH / promote no |
-| Correctness / tests | **8.4** | + desk unit tests |
+| Correctness / tests | **8.5** | + experiment ledger tests |
 | Code quality | **7.7** | Narrower excepts; less silent swallow |
-| Docs / self-describing APIs | **8.4** | IMPROVEMENT_QUESTIONS + desk docs |
-| ML rigor | **8.5** | multi-window 3/3 PASS + cost stress + regime blend |
-| Observability | **8.0** | desk_latest.json + desk_run journal |
+| Docs / self-describing APIs | **8.5** | experiment loop documented |
+| ML rigor | **8.5** | multi-window + cost stress + regime |
+| Observability | **8.3** | experiments.jsonl before/after gates |
 | Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
 
-**Weighted overall ≈ 9.2** — agents drive process with fact packet; still no auto-execute.
+**Weighted overall ≈ 9.3** — LLM improvement loop is measurable; still no auto-execute.
 
 ---
 
@@ -86,6 +86,7 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-25 | 9.0 | +0.2 | Ranked top-N plan + mom blend; BT gate PASS |
 | 2026-07-25 | 9.1 | +0.1 | Regime filter + multi-window stable gate + cost stress |
 | 2026-07-25 | 9.2 | +0.1 | neotrade desk multi-agent + improvement questions doc |
+| 2026-07-25 | 9.3 | +0.1 | experiment ledger + scheduled desk script |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

@@ -190,6 +190,33 @@ then runs four roles. Output: `final_action`, `promote`, `train_rec`, `experimen
 LLMs may recommend `train|eval|backtest` experiments. They must **not** train LightGBM
 on prose. See `docs/IMPROVEMENT_QUESTIONS.md`.
 
+### Experiment ledger (desk → measure)
+
+```bash
+neotrade desk
+neotrade experiment list --status open
+# ... change config / run train eval backtest ...
+neotrade experiment complete --latest          # auto outcome from gate delta
+neotrade experiment complete --id ab12 --outcome pass --notes "kept"
+neotrade experiment snapshot                   # current eval/BT JSON snippet
+```
+
+- Ledger: `data/learning/experiments.jsonl`
+- Desk auto-opens a row when EXPERIMENT ≠ none
+- Completing snapshots **after** gates; compares promote/returns (journal only)
+- **Discipline:** at most **one** open experiment. Desk/list auto-reconcile duplicates.
+  - `neotrade experiment complete --all` — sweep orphans
+  - `neotrade experiment reconcile` — keep newest open, abandon rest
+  - Agents must not end a session with multiple opens
+
+### Scheduled desk (optional)
+
+```bash
+chmod +x scripts/run_desk.sh
+# cron example (Mon-Fri 09:50 ET) — never executes trades:
+# 50 9 * * 1-5 cd ~/dev/neotrade && ./scripts/run_desk.sh
+```
+
 Env: `OLLAMA_HOST`, `NEOTRADE_OLLAMA_MODEL` (default `llama3.2:3b`).
 
 ## Dashboard
