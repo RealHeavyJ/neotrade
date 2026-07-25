@@ -93,7 +93,7 @@ v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a
 - [ ] Push when user asks
 
 ### T4 — Code quality (weakest eng dim)
-- [ ] Split `main.py` → `cli/` submodules (train/eval/bt/broker/desk)  
+- [x] Split `main.py` → `cli/` (common, data, ml, broker, agent, ops, parser)  
 - [ ] Kill remaining broad excepts; type-narrow public APIs  
 - **Lifts:** code quality **7.7 → ~8.2**, arch
 
@@ -110,9 +110,9 @@ v1 + P0–P4 + strict promote **done**. Score **9.6**. Prefer work that raises a
 - Rebuild v1 layers · live trading · train on advise prose · multi-open experiments  
 
 ## Status
-**v1 complete.** Score **9.8** / floor **7.6**. Tests **128**.  
+**v1 complete.** Score **9.9** / floor **7.6**. Tests **128**.  
 **Promote:** bare `neotrade backtest` → **PASS** (top_n=7, rebal=14, 2y+slip).  
-**Next coding default:** **T4** split `main.py` → `cli/` (code quality).  
-**Next ops:** Mon RTH execute logs fills; `fills --apply` when n≥20; optional push.
+**Next coding default:** optional except-narrowing · or ops Mon.  
+**Next ops:** Mon RTH; `fills --apply` when n≥20.
 
 Last updated: 2026-07-25

@@ -79,6 +79,20 @@ neotrade eval --folds 4 --horizon 5 --rounds 100
 
 ### Portfolio backtest (model promotion)
 
+### CLI layout
+
+```
+src/neotrade/main.py          # thin entry (console script)
+src/neotrade/cli/
+  common.py                   # shared helpers, model path
+  data_cmds.py                # tickers, fetch, quotes
+  ml_cmds.py                  # train, eval, backtest, signals
+  broker_cmds.py              # account, session, plan, execute, fills
+  agent_cmds.py               # advise, desk, experiment
+  ops_cmds.py                 # weekly, monitor, stream, bench, dashboard
+  parser.py                   # argparse tree
+```
+
 ### Weekly promote automation
 
 ```bash

@@ -68,7 +68,7 @@ Use it in weekly reviews and when driving the **desk** agents.
 | top_n=7 + rebal=14 under strict 2y BT | Bare promote PASS | **Done** |
 | Full auto weekly: `neotrade weekly` | Cadence without babysitting | **Done (T1)** |
 | Calibrate slip_bps from live paper fills | BT matches your fills | **Done (T2)** |
-| Split main.py → cli/ | Maintainability | Later (T4) |
+| Split main.py → cli/ | Maintainability | **Done (T4)** |
 
 ---
 

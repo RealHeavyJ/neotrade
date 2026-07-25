@@ -2,11 +2,6 @@
 
 from neotrade.broker.alpaca import AlpacaPaperClient, OpenOrder, parse_open_orders
 from neotrade.broker.credentials import AlpacaCredentials, load_alpaca_credentials
-from neotrade.broker.fills import (
-    FillCalibration,
-    calibrate_fills,
-    effective_slip_bps,
-)
 from neotrade.broker.hours import (
     SessionPhase,
     SessionStatus,
@@ -16,10 +11,12 @@ from neotrade.broker.hours import (
 from neotrade.broker.plan import OrderIntent, TradePlan, build_trade_plan, summarize_open_orders
 from neotrade.broker.risk import RiskLimits, default_risk_limits
 
+# fills lives in broker.fills — import directly to avoid package-init cycles
+# with learning/agents.
+
 __all__ = [
     "AlpacaCredentials",
     "AlpacaPaperClient",
-    "FillCalibration",
     "OpenOrder",
     "OrderIntent",
     "RiskLimits",
@@ -28,9 +25,7 @@ __all__ = [
     "TradePlan",
     "assert_execute_allowed",
     "build_trade_plan",
-    "calibrate_fills",
     "default_risk_limits",
-    "effective_slip_bps",
     "get_session_status",
     "load_alpaca_credentials",
     "parse_open_orders",

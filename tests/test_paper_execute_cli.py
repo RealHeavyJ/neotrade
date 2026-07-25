@@ -39,9 +39,9 @@ def test_paper_execute_outside_rth_returns_3():
         sell_threshold=None,
     )
     with (
-        patch("neotrade.main.assert_execute_allowed", side_effect=RuntimeError("paper execute blocked: after-hours")),
-        patch("neotrade.main._load_signals_for_paper") as load_sig,
-        patch("neotrade.main.AlpacaPaperClient") as client_cls,
+        patch("neotrade.cli.broker_cmds.assert_execute_allowed", side_effect=RuntimeError("paper execute blocked: after-hours")),
+        patch("neotrade.cli.broker_cmds.load_signals_for_paper") as load_sig,
+        patch("neotrade.cli.broker_cmds.AlpacaPaperClient") as client_cls,
     ):
         code = _cmd_paper_execute(args)
     assert code == 3
@@ -82,13 +82,13 @@ def test_paper_execute_rth_with_no_intents_returns_0():
     empty_plan = TradePlan(equity=100_000, cash=100_000, notes=["no actionable intents"])
 
     with (
-        patch("neotrade.main.assert_execute_allowed", return_value=_rth_status()),
+        patch("neotrade.cli.broker_cmds.assert_execute_allowed", return_value=_rth_status()),
         patch(
-            "neotrade.main._load_signals_for_paper",
+            "neotrade.cli.broker_cmds.load_signals_for_paper",
             return_value=(cfg, risk, [], {}),
         ),
-        patch("neotrade.main.AlpacaPaperClient", return_value=client),
-        patch("neotrade.main.build_trade_plan", return_value=empty_plan),
+        patch("neotrade.cli.broker_cmds.AlpacaPaperClient", return_value=client),
+        patch("neotrade.cli.broker_cmds.build_trade_plan", return_value=empty_plan),
     ):
         code = _cmd_paper_execute(args)
 
@@ -107,7 +107,7 @@ def test_main_paper_execute_blocked_session_systemexit_3():
     """Negative: full CLI with --confirm outside RTH → SystemExit 3."""
     with (
         patch(
-            "neotrade.main.assert_execute_allowed",
+            "neotrade.cli.broker_cmds.assert_execute_allowed",
             side_effect=RuntimeError("paper execute blocked: closed"),
         ),
         pytest.raises(SystemExit) as ei,

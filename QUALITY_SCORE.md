@@ -9,27 +9,27 @@ Goal: every change **holds or raises** the score; **never regress**.
 
 | Field | Value |
 |-------|--------|
-| **Overall** | **9.8 / 10** |
+| **Overall** | **9.9 / 10** |
 | **Floor (do not go below)** | **7.6** |
-| **Target (next milestone)** | **9.9** (code quality / T4 split main) |
-| **Rated** | 2026-07-25 (fill slip calibration) |
-| **Rater** | T2 fills |
+| **Target (next milestone)** | **10.0** (ops polish / except hygiene) |
+| **Rated** | 2026-07-25 (CLI split T4) |
+| **Rater** | T4 cli |
 | **Tests at rating** | 128 |
 
 ### Dimension scores
 
 | Dimension | Score | Notes |
 |-----------|------:|-------|
-| Architecture / modularity | 8.5 | + `ops/weekly` + `broker/fills` |
+| Architecture / modularity | **8.9** | `cli/` package; thin main entry |
 | Safety / ops | **9.1** | weekly never executes; exit codes honest |
-| Correctness / tests | **9.0** | fill slip + weekly tests |
-| Code quality | **7.7** | Narrower excepts; less silent swallow |
+| Correctness / tests | **9.0** | fill slip + weekly + paper-execute CLI |
+| Code quality | **8.2** | main.py split; handlers modular |
 | Docs / self-describing APIs | **8.7** | fills + weekly in user-guide |
 | ML rigor | **9.2** | calibrated slip feeds bare BT when n≥20 |
 | Observability | **8.7** | fills.jsonl + slip_calibration.json |
 | Scalability / realtime | **7.3** | REST poller + IEX WebSocket stream |
 
-**Weighted overall ≈ 9.8** — microstructure feedback loop closed.
+**Weighted overall ≈ 9.9** — CLI maintainability caught up with product depth.
 
 ---
 
@@ -92,6 +92,7 @@ Cosmetic refactors that do not close a gap should still **not** lower any dimens
 | 2026-07-25 | 9.6 | +0.1 | top_n=7 rebal=14; fair baseline slip; bare BT promote PASS |
 | 2026-07-25 | 9.7 | +0.1 | neotrade weekly + launchd; never-execute promote cadence |
 | 2026-07-25 | 9.8 | +0.1 | fill slip calib → BT default when n≥20 |
+| 2026-07-25 | 9.9 | +0.1 | split main.py → neotrade.cli/* modules |
 | | | | *Agents: append a row when overall or any dimension changes* |
 
 ### How to update a dimension

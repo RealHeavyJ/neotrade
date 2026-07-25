@@ -30,12 +30,15 @@ windows 3/3 PASS · promote=True · slip/cost stress ok
 ```
 
 ### Stack
-| Quality **9.8** / floor 7.6 | Tests **128** |
+| Quality **9.9** / floor 7.6 | Tests **128** |
 
 ### Next session default
 1. Ops Mon: desk + paper-plan; execute logs fills  
-2. Optional: push commit · `fills --apply` after n≥20  
-3. Dev: **T4** split `main.py` → `cli/`  
+2. Optional: commit/push T4 · `fills --apply` after n≥20  
+
+### 2026-07-25 T4 split CLI
+- `main.py` ~50 lines; handlers in `neotrade/cli/*`  
+- parser + data/ml/broker/agent/ops modules  
 
 ### 2026-07-25 T3 commit
 - Shipped T1 weekly + T2 fills on main (local commit)
