@@ -37,8 +37,7 @@ def data_base_url() -> str:
         or os.environ.get("APCA_API_DATA_URL")
         or DEFAULT_DATA_URL
     ).strip().rstrip("/")
-    if base.endswith("/v2"):
-        base = base[: -len("/v2")]
+    base = base.removesuffix("/v2")
     return base
 
 
@@ -99,8 +98,7 @@ class AlpacaMarketDataClient:
     ) -> None:
         self.credentials = credentials or load_alpaca_credentials(require_paper=True)
         self.data_url = (data_url or data_base_url()).rstrip("/")
-        if self.data_url.endswith("/v2"):
-            self.data_url = self.data_url[: -len("/v2")]
+        self.data_url = self.data_url.removesuffix("/v2")
         self.feed = (feed or data_feed()).lower()
 
     def _request(self, path: str, query: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -118,7 +116,7 @@ class AlpacaMarketDataClient:
             raise RuntimeError(f"Alpaca data network/SSL error: {exc.reason}") from exc
         data = json.loads(payload) if payload else {}
         if not isinstance(data, dict):
-            raise RuntimeError("unexpected Alpaca market-data response")
+            raise TypeError("unexpected Alpaca market-data response")
         return data
 
     def get_latest_trades(self, symbols: list[str]) -> dict[str, LatestTrade]:

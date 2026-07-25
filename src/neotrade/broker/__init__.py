@@ -2,7 +2,12 @@
 
 from neotrade.broker.alpaca import AlpacaPaperClient
 from neotrade.broker.credentials import AlpacaCredentials, load_alpaca_credentials
-from neotrade.broker.hours import SessionPhase, SessionStatus, assert_execute_allowed, get_session_status
+from neotrade.broker.hours import (
+    SessionPhase,
+    SessionStatus,
+    assert_execute_allowed,
+    get_session_status,
+)
 from neotrade.broker.plan import OrderIntent, TradePlan, build_trade_plan
 from neotrade.broker.risk import RiskLimits, default_risk_limits
 

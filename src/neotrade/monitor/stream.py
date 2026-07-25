@@ -20,7 +20,7 @@ import threading
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from neotrade.broker.credentials import AlpacaCredentials, load_alpaca_credentials
@@ -484,7 +484,7 @@ def run_stream_cli(
             stream._stop.set()
             try:
                 return await task
-            except Exception:
+            except Exception:  # noqa: BLE001
                 return stream.state
         except asyncio.CancelledError:
             stream._stop.set()
@@ -495,7 +495,7 @@ def run_stream_cli(
                 stream._stop.set()
                 try:
                     await task
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
             raise
 
@@ -537,7 +537,7 @@ def run_stream_cli(
         ask_s = f"{q.ask:.2f}" if q.ask is not None else "—"
         print(f"{q.symbol:<8} {px_s:>10} bid={bid_s:>8} ask={ask_s:>8} {q.source}")
     if not state.snapshot():
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         print(
             f"note: no trade/quote ticks by {now} "
             "(outside RTH, quiet tape, or subscribe rejected — see last_error)",

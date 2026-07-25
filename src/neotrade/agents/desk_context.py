@@ -8,10 +8,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from neotrade.broker import AlpacaPaperClient, build_trade_plan, default_risk_limits, get_session_status
+from neotrade.broker import (
+    AlpacaPaperClient,
+    build_trade_plan,
+    default_risk_limits,
+    get_session_status,
+)
 from neotrade.broker.alpaca import AlpacaAPIError
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root
@@ -147,7 +152,7 @@ def gather_desk_packet(
     risk = default_risk_limits(cfg)
     session = get_session_status()
     packet = DeskPacket(
-        ts=datetime.now(timezone.utc).isoformat(),
+        ts=datetime.now(UTC).isoformat(),
         session_line=session.summary_line(),
         allow_execute=session.allow_execute,
         universe=cfg.universe.name,

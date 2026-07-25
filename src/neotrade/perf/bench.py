@@ -6,7 +6,7 @@ import json
 import resource
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from neotrade.agents.llm import OllamaClient
@@ -109,7 +109,7 @@ def bench_signals(model_path: Path | None = None) -> tuple[float | None, int, li
 
 
 def run_full_bench(*, save: bool = True) -> BenchReport:
-    report = BenchReport(ts=datetime.now(timezone.utc).isoformat())
+    report = BenchReport(ts=datetime.now(UTC).isoformat())
     ok, model, lat, n1 = bench_ollama()
     report.ollama_ok = ok
     report.ollama_model = model
@@ -125,7 +125,7 @@ def run_full_bench(*, save: bool = True) -> BenchReport:
     if save:
         out_dir = project_root() / "data" / "learning"
         out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"bench_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        path = out_dir / f"bench_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
         path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
         # also keep latest pointer
         (out_dir / "bench_latest.json").write_text(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
 from neotrade.config import load_tickers_config
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.config.models import TickersConfig

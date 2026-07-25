@@ -6,6 +6,7 @@ Regimes adjust cash, top-N, and model/momentum blend weights.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -63,7 +64,7 @@ def detect_regime(
     """Infer regime from latest bar cross-section of vol_20 and trend_strength_20."""
     vols: list[float] = []
     trends: list[float] = []
-    for _sym, ohlcv in frames.items():
+    for ohlcv in frames.values():
         try:
             feats = build_features(ohlcv)
             if feats.empty:
@@ -71,9 +72,9 @@ def detect_regime(
             row = feats.iloc[-1]
             v = float(row.get("vol_20", np.nan))
             t = float(row.get("trend_strength_20", np.nan))
-            if v == v and v > 0:
+            if not math.isnan(v) and v > 0:
                 vols.append(v)
-            if t == t:
+            if not math.isnan(t):
                 trends.append(t)
         except (ValueError, KeyError, TypeError):
             continue

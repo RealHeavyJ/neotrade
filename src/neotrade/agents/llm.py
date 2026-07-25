@@ -22,7 +22,7 @@ class OllamaConfig:
     timeout: float = 120.0
 
     @classmethod
-    def from_env(cls) -> "OllamaConfig":
+    def from_env(cls) -> OllamaConfig:
         return cls(
             host=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/"),
             model=os.environ.get("NEOTRADE_OLLAMA_MODEL", "llama3.2:3b"),

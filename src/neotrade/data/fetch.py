@@ -11,7 +11,13 @@ import yfinance as yf
 from neotrade.config.load import project_root, resolve_cache_dir
 from neotrade.config.models import TickersConfig
 from neotrade.data.alpaca_md import AlpacaMarketDataClient
-from neotrade.data.cache import OHLCV_COLUMNS, cache_path, is_cache_fresh, load_cached_ohlcv, save_ohlcv
+from neotrade.data.cache import (
+    OHLCV_COLUMNS,
+    cache_path,
+    is_cache_fresh,
+    load_cached_ohlcv,
+    save_ohlcv,
+)
 
 ALLOWED_PROVIDERS = {"auto", "alpaca", "yfinance"}
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -86,11 +86,15 @@ class EvalReport:
     def summary_lines(self) -> list[str]:
         lines = [
             f"eval @ {self.ts} horizon={self.horizon} folds={self.n_folds}",
-            f"mean_accuracy={self.mean_accuracy:.4f}  "
-            f"always_long={self.mean_always_long_acc:.4f}  "
-            f"momentum={self.mean_momentum_acc:.4f}",
-            f"edge_vs_always_long={self.edge_vs_always_long:+.4f}  "
-            f"edge_vs_momentum={self.edge_vs_momentum:+.4f}",
+            (
+                f"mean_accuracy={self.mean_accuracy:.4f}  "
+                f"always_long={self.mean_always_long_acc:.4f}  "
+                f"momentum={self.mean_momentum_acc:.4f}"
+            ),
+            (
+                f"edge_vs_always_long={self.edge_vs_always_long:+.4f}  "
+                f"edge_vs_momentum={self.edge_vs_momentum:+.4f}"
+            ),
             f"mean_brier={self.mean_brier:.4f}  leakage_ok={self.leakage.ok}",
         ]
         for note in self.notes:
@@ -391,7 +395,7 @@ def walk_forward_eval(
         notes.append("model mean accuracy does not beat momentum (ret_5>0) baseline")
 
     return EvalReport(
-        ts=datetime.now(timezone.utc).isoformat(),
+        ts=datetime.now(UTC).isoformat(),
         horizon=horizon,
         n_folds=len(folds),
         folds=folds,
@@ -418,7 +422,7 @@ def save_eval_report(report: EvalReport, path: Path | str | None = None) -> Path
     path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
     # also timestamped copy
     stamped = path.with_name(
-        f"eval_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+        f"eval_{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}.json"
     )
     if stamped != path:
         try:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from neotrade.config.load import project_root
@@ -25,7 +25,7 @@ class LearningLog:
 
 def append_entry(kind: str, payload: dict) -> Path:
     entry = LearningLog(
-        ts=datetime.now(timezone.utc).isoformat(),
+        ts=datetime.now(UTC).isoformat(),
         kind=kind,
         payload=payload,
     )

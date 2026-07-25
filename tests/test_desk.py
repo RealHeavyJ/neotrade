@@ -12,21 +12,21 @@ from neotrade.signals.score import SignalRow
 
 def _packet(**kwargs) -> DeskPacket:
     st = get_session_status()
-    base = dict(
-        ts="2026-07-25T00:00:00Z",
-        session_line=st.summary_line(),
-        allow_execute=False,
-        universe="test",
-        regime_line="regime=neutral",
-        account_lines=["equity=$100,000 cash=$20,000 filled_positions=2"],
-        signal_lines=["NVDA proba=0.70 side=buy"],
-        plan_lines=["mode=ranked top_n=5"],
-        eval_lines=["edge_vs_always_long=0.02"],
-        backtest_lines=["promote=True", "full_gate_pass=True"],
-        promote_ok=True,
-        notes=[],
-        top_signals=[SignalRow("NVDA", 0.7, "buy", "2026-07-25")],
-    )
+    base: dict = {
+        "ts": "2026-07-25T00:00:00Z",
+        "session_line": st.summary_line(),
+        "allow_execute": False,
+        "universe": "test",
+        "regime_line": "regime=neutral",
+        "account_lines": ["equity=$100,000 cash=$20,000 filled_positions=2"],
+        "signal_lines": ["NVDA proba=0.70 side=buy"],
+        "plan_lines": ["mode=ranked top_n=5"],
+        "eval_lines": ["edge_vs_always_long=0.02"],
+        "backtest_lines": ["promote=True", "full_gate_pass=True"],
+        "promote_ok": True,
+        "notes": [],
+        "top_signals": [SignalRow("NVDA", 0.7, "buy", "2026-07-25")],
+    }
     base.update(kwargs)
     return DeskPacket(**base)
 

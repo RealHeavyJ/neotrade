@@ -29,8 +29,10 @@ class MarketContext:
     def to_prompt_block(self) -> str:
         lines = [
             f"Universe: {self.universe}",
-            "Definitions: filled positions = owned shares; open_orders = unfilled working orders "
-            "(not inventory). Cash usually unchanged until fills.",
+            (
+                "Definitions: filled positions = owned shares; open_orders = unfilled working orders "
+                "(not inventory). Cash usually unchanged until fills."
+            ),
             "Signals (symbol proba side as_of):",
         ]
         for s in self.signals[:25]:

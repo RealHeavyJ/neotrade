@@ -14,6 +14,6 @@ def test_bench_ollama_down(monkeypatch):
         def ping(self):
             return False
 
-    ok, model, lat, notes = bench_ollama(Down())  # type: ignore[arg-type]
+    ok, _model, lat, _notes = bench_ollama(Down())  # type: ignore[arg-type]
     assert ok is False
     assert lat is None
