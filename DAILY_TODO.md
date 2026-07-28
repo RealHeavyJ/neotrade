@@ -142,6 +142,17 @@ source .venv/bin/activate    # must source, not execute
 
 equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (execute blocked until Mon RTH)
 
+### EOD — 2026-07-27 (Mon)
+
+| Field | Value |
+|-------|--------|
+| equity | **$98,284.46** |
+| cash | **$2,126.32** |
+| positions | **7** (top_n book) · 0 open orders |
+| blocked / PDT | False / False |
+| names | AVGO CEG JNJ JPM NOW NVDA PLTR |
+| note | vs 7/25: equity −$625 · cash −$18k (deployed into 7 names) · uPL leaders JNJ/NOW; NVDA lag |
+
 ---
 
 ## Copy-paste

@@ -14,17 +14,18 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-07-25 EOD) — RESTART HERE
+## Session end checkpoint (2026-07-25 T9 social) — RESTART HERE
 
-### Shipped (this long session)
-- Promote path: top_n=7, rebal=14, 2y+slip, fair baselines → **bare BT PASS**  
-- T1 weekly · T2 fills · T4 cli split · T5 ablate · T6 status/stale/dashboard  
-- Agent **expert review** + desk **BLIND_SPOT**  
-- Future backlog **adopted:** T8 paper eras (snapshot→diff→reset) · T7 logs when pain  
+### Shipped
+- **T9 Phase A+B:** `neotrade social` module — X fetch/cache/lexicon grade, desk context  
+  - Package `src/neotrade/social/`, CLI fetch/status/summary, `config/social_accounts.yaml`  
+  - Desk SOCIAL block only if `NEOTRADE_SOCIAL_ENABLED=1`; **not** LightGBM train; promote untouched  
+  - Docs: `docs/social_module.md`  
+- Prior: promote PASS path, T1–T6 eng pack  
 
 ### Live
 ```
-promote=PASS · top_n=7 rebal=14 · score 10.0 · 134 tests
+promote path unchanged · score 10.0 · 148 tests · social default OFF
 ```
 
 ### Next session default (Mon research — not eng)
@@ -34,6 +35,7 @@ neotrade desk
 # one experiment only →
 neotrade train && neotrade eval && neotrade backtest
 neotrade experiment complete --latest
+# optional archive: X_BEARER_TOKEN + neotrade social fetch (daily)
 ```
 Execute only RTH + `--confirm` + promote yes. `fills --apply` when n≥20.
 

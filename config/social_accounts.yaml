@@ -1,0 +1,72 @@
+# Curated FinTwit / research handles for neotrade social module.
+# Edit freely — no secrets here. Bearer token stays in .env (X_BEARER_TOKEN).
+#
+# Used by: neotrade social fetch (optional account timelines)
+# Desk surfaces cache only when NEOTRADE_SOCIAL_ENABLED=1
+
+accounts:
+  # Momentum / TA
+  - handle: ripster47
+    tags: [momentum, ta]
+    tier: core
+  - handle: InvestorsLive
+    tags: [momentum, day]
+    tier: core
+  - handle: AdamMancini4
+    tags: [spx, futures]
+    tier: core
+  - handle: Qullamaggie
+    tags: [breakout]
+    tier: core
+
+  # Options / flow
+  - handle: Mr_Derivatives
+    tags: [options]
+    tier: core
+  - handle: unusual_whales
+    tags: [options, flow]
+    tier: core
+
+  # Value / research
+  - handle: BrianFeroldi
+    tags: [fundamentals]
+    tier: core
+  - handle: RagingVentures
+    tags: [value, midcap]
+    tier: core
+  - handle: markminervini
+    tags: [sepa, momentum]
+    tier: core
+
+  # Macro
+  - handle: LizAnnSonders
+    tags: [macro]
+    tier: core
+  - handle: PeterLBrandt
+    tags: [charts, macro]
+    tier: core
+  - handle: AlderLaneEggs
+    tags: [shorts, forensic]
+    tier: core
+
+  # Forensic / activist
+  - handle: HindenburgRes
+    tags: [forensic, short]
+    tier: core
+  - handle: muddywatersre
+    tags: [forensic]
+    tier: core
+  - handle: sprucepointcap
+    tags: [forensic]
+    tier: core
+
+  # Retail / tech
+  - handle: TheOneLanceB
+    tags: [retail]
+    tier: secondary
+  - handle: WOLF_Financial
+    tags: [retail]
+    tier: secondary
+  - handle: Post_Market
+    tags: [tech, consumer]
+    tier: secondary

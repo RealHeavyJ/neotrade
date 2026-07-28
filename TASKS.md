@@ -85,6 +85,14 @@ v1 + P0–P4 + T1–T6 eng **done**. Next week = **ops + model/agent research** 
 3. `neotrade weekly` keeps promote honest  
 4. `fills --apply` when n≥20  
 
+### T9 — Social / X research module (Phase A+B shipped 2026-07-25)
+- [x] `src/neotrade/social/` fetch → lexicon grade → JSONL cache  
+- [x] CLI: `neotrade social {fetch,status,summary}`  
+- [x] Desk SOCIAL block when `NEOTRADE_SOCIAL_ENABLED=1` (journal only)  
+- [x] `config/social_accounts.yaml` + `docs/social_module.md`  
+- [ ] **Ops:** daily `social fetch` if `X_BEARER_TOKEN` set (build history)  
+- [ ] Phase C later: IC study → opt-in `FEATURE_GROUPS["social"]` + ablate (never bare promote default)
+
 ---
 
 ## Future eng tracks (NOT this week — schedule after research week)
@@ -120,10 +128,11 @@ See `docs/FUTURE_EPOCHS_AND_LOGS.md`.
 - Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**Session closed 2026-07-25.** Score **10.0** · tests **134** · promote path green.  
-**Next (default): Mon RTH research week** — not T7/T8 eng.  
+**Session 2026-07-25 (T9 social A+B).** Score **10.0** · tests **148** · promote untouched.  
+**Next (default): Mon RTH research week** — not T7/T8; optional daily `social fetch`.  
 ```
 status → desk → one experiment → train/eval[/ablate]/backtest → experiment complete
+# optional archive: export X_BEARER_TOKEN; neotrade social fetch; NEOTRADE_SOCIAL_ENABLED=1 for desk
 ```
 **Later eng:** T8 snapshot/diff first · T7 when log pain · reset last.
 

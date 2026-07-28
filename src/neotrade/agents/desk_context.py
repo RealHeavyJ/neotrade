@@ -44,6 +44,7 @@ class DeskPacket:
     plan_lines: list[str] = field(default_factory=list)
     eval_lines: list[str] = field(default_factory=list)
     backtest_lines: list[str] = field(default_factory=list)
+    social_lines: list[str] = field(default_factory=list)
     promote_ok: bool | None = None
     notes: list[str] = field(default_factory=list)
     top_signals: list[SignalRow] = field(default_factory=list)
@@ -81,6 +82,9 @@ class DeskPacket:
             )
         )
         lines.append(f"promote_ok={self.promote_ok}")
+        if self.social_lines:
+            lines += ["", "SOCIAL (journal only — never LightGBM train):"]
+            lines.extend(f"  {x}" for x in self.social_lines)
         if self.notes:
             lines.append("NOTES:")
             lines.extend(f"  {n}" for n in self.notes)
@@ -162,6 +166,7 @@ def gather_desk_packet(
     if not model_path.is_file():
         packet.notes.append(f"model missing: {model_path} (run neotrade train)")
         packet.regime_line = "unknown"
+        _attach_social(packet, root=root, symbols=cfg.symbols())
         return packet
 
     model = SignalModel.load(model_path)
@@ -269,4 +274,16 @@ def gather_desk_packet(
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         packet.notes.append(f"experiments: status error {exc}")
 
+    _attach_social(packet, root=root, symbols=cfg.symbols())
     return packet
+
+
+def _attach_social(packet: DeskPacket, *, root: Path, symbols: list[str]) -> None:
+    """Optional X/social archive (NEOTRADE_SOCIAL_ENABLED=1); never trains LightGBM."""
+    try:
+        from neotrade.social.desk import social_desk_lines
+
+        packet.social_lines = social_desk_lines(root=root, universe=symbols)
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
+        packet.notes.append(f"social: {exc}")
+        log.warning("desk social failed: %s", exc)

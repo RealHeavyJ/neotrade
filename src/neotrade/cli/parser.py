@@ -24,6 +24,7 @@ from neotrade.cli.ops_cmds import (
     cmd_stream,
     cmd_weekly,
 )
+from neotrade.cli.social_cmds import cmd_social
 
 # re-export for callers that expect version on parser module
 __all__ = ["build_parser", "cmd_version"]
@@ -55,6 +56,37 @@ def build_parser() -> argparse.ArgumentParser:
     p_quotes.add_argument("--config", type=str, default=None)
     p_quotes.add_argument("--cache-only", action="store_true", help="skip Alpaca; use cached closes")
     p_quotes.set_defaults(func=cmd_quotes)
+
+    p_social = sub.add_parser(
+        "social",
+        help="X/Twitter research: fetch/cache/grade posts (desk context; not LightGBM train)",
+    )
+    social_sub = p_social.add_subparsers(dest="social_action", required=True)
+    p_soc_fetch = social_sub.add_parser("fetch", help="pull recent posts + lexicon grade → data/social/")
+    p_soc_fetch.add_argument("--config", type=str, default=None)
+    p_soc_fetch.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help="comma-separated cashtag symbols (default: full universe)",
+    )
+    p_soc_fetch.add_argument("--max-results", type=int, default=10, help="per-query max (10–100)")
+    p_soc_fetch.add_argument(
+        "--max-accounts",
+        type=int,
+        default=None,
+        help="cap curated account pulls (default: all in social_accounts.yaml)",
+    )
+    p_soc_fetch.add_argument("--no-accounts", action="store_true", help="cashtag search only")
+    p_soc_fetch.add_argument("--no-cashtags", action="store_true", help="curated accounts only")
+    p_soc_fetch.set_defaults(func=cmd_social)
+    p_soc_status = social_sub.add_parser("status", help="token, cache age, last fetch")
+    p_soc_status.set_defaults(func=cmd_social)
+    p_soc_sum = social_sub.add_parser("summary", help="per-ticker aggregates from cache")
+    p_soc_sum.add_argument("--config", type=str, default=None)
+    p_soc_sum.add_argument("--hours", type=float, default=48.0, help="lookback window (default 48)")
+    p_soc_sum.add_argument("--json", action="store_true", help="JSON output")
+    p_soc_sum.set_defaults(func=cmd_social)
 
     p_mon = sub.add_parser(
         "monitor",

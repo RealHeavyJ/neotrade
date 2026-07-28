@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -20,6 +21,26 @@ from neotrade.data.cache import (
 )
 
 ALLOWED_PROVIDERS = {"auto", "alpaca", "yfinance"}
+# Features need ≥60 bars; promote BT wants multi-year history
+_MIN_BARS_OK = 60
+
+_PERIOD_DAYS: dict[str, int] = {
+    "1mo": 31,
+    "3mo": 93,
+    "6mo": 186,
+    "1y": 370,
+    "2y": 740,
+    "5y": 1825,
+    "10y": 3650,
+    "ytd": 370,
+    "max": 3650,
+}
+
+
+def _start_for_period(period: str) -> datetime:
+    """UTC start timestamp for Alpaca bars from a yfinance-style period string."""
+    days = _PERIOD_DAYS.get((period or "2y").lower(), 740)
+    return datetime.now(UTC) - timedelta(days=days)
 
 
 @dataclass
@@ -68,8 +89,18 @@ def _download_alpaca(symbol: str, *, interval: str, period: str) -> pd.DataFrame
         raise RuntimeError(f"Alpaca fetch supports interval=1d only (got {interval})")
     client = AlpacaMarketDataClient()
     timeframe = "1Day"
-    frame = client.get_stock_bars(symbol, timeframe=timeframe, limit=10_000)
-    return _normalize_ohlcv(frame, symbol)
+    frame = client.get_stock_bars(
+        symbol,
+        timeframe=timeframe,
+        start=_start_for_period(period),
+        limit=10_000,
+    )
+    out = _normalize_ohlcv(frame, symbol)
+    if len(out) < _MIN_BARS_OK:
+        raise RuntimeError(
+            f"Alpaca returned only {len(out)} bars for {symbol} (need ≥{_MIN_BARS_OK})"
+        )
+    return out
 
 
 def download_ohlcv(
@@ -87,6 +118,7 @@ def download_ohlcv(
         return _download_yfinance(symbol, period=period, interval=interval)
     if provider == "alpaca":
         return _download_alpaca(symbol, interval=interval, period=period)
+    # auto: Alpaca with full period window, else yfinance
     try:
         return _download_alpaca(symbol, interval=interval, period=period)
     except (RuntimeError, OSError, ValueError):

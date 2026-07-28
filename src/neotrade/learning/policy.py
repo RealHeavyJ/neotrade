@@ -38,6 +38,9 @@ NEVER_USE_FOR_LIGHTGBM = frozenset(
         "advise_prose",
         "trader_raw",
         "analyst_raw",
+        "social_prose",
+        "tweet_text",
+        "desk_social_block",
     }
 )
 

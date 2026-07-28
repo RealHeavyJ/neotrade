@@ -196,6 +196,10 @@ def page_signals() -> None:
         df = load_signals_cached(str(DEFAULT_MODEL), buy_th, sell_th)
     if df.empty:
         st.error("No signals produced")
+        st.caption(
+            "Usually means OHLCV cache has too few bars (need ≥60). "
+            "Run: `neotrade fetch --force` then click **Refresh signals**."
+        )
         return
     st.dataframe(df, use_container_width=True, hide_index=True)
     buys = df[df["side"] == "buy"]
