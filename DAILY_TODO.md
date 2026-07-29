@@ -3,11 +3,11 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-25 (Sat) — session closed; eng research-ready  
+**Last ops review:** 2026-07-28 (Tue) EOD — equity $97,809.78  
 **Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · 3/3 windows)  
-**Next RTH:** 2026-07-27 09:30 ET  
-**Mon loop:** `status` → `desk` → one exp → train/eval/BT → `experiment complete`  
-**Do not Mon:** T7/T8 eng plumbing (future only)
+**Next RTH:** 2026-07-29 09:30 ET  
+**Day loop:** `status` → `desk` → advise-only unless promote+RTH  
+**Do not:** mid-week retrain unless weekly / open experiment
 
 ---
 
@@ -127,7 +127,8 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-20 EOD | 100,297 | 20,208 | 10 | 0 | Day 1 live book |
 | 2026-07-21 EOD | **101,744** | 20,208 | 10 | 0 | +1.4% vs 7/20 EOD; leaders MU/MRVL/AMD/ARM; lag CRWD |
 | 2026-07-25 | **98,909** | 20,208 | 10 | 0 | Weekly: eval OK; BT was FAIL then **strategy fix → BT PASS** (+72% vs eq+39%/mom+44%). Ranked top-5 + mom blend. |
-| | | | | | |
+| 2026-07-27 EOD | **98,284** | 2,126 | 7 | 0 | Deployed; top_n book |
+| 2026-07-28 EOD | **97,810** | 2,126 | — | — | equity=$97,809.78 · cash=$2,126.28 · bp=$276,418.92 |
 
 ### Weekly model check — 2026-07-25
 
@@ -153,6 +154,15 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | names | AVGO CEG JNJ JPM NOW NVDA PLTR |
 | note | vs 7/25: equity −$625 · cash −$18k (deployed into 7 names) · uPL leaders JNJ/NOW; NVDA lag |
 
+### EOD — 2026-07-28 (Tue)
+
+| Field | Value |
+|-------|--------|
+| equity | **$97,809.78** |
+| cash | **$2,126.28** |
+| buying_power | **$276,418.92** |
+| note | vs 7/27 EOD: equity −$474.68 · cash flat |
+
 ---
 
 ## Copy-paste
@@ -176,4 +186,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-07-25 (weekly complete; BT gate FAIL)
+Last updated: 2026-07-28 EOD (equity $97,809.78 · cash $2,126.28 · bp $276,418.92)
