@@ -3,9 +3,9 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-28 (Tue) EOD — equity $97,809.78  
+**Last ops review:** 2026-07-29 (Wed) EOD — equity $97,190.00  
 **Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · 3/3 windows)  
-**Next RTH:** 2026-07-29 09:30 ET  
+**Next RTH:** 2026-07-30 09:30 ET  
 **Day loop:** `status` → `desk` → advise-only unless promote+RTH  
 **Do not:** mid-week retrain unless weekly / open experiment
 
@@ -129,6 +129,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-25 | **98,909** | 20,208 | 10 | 0 | Weekly: eval OK; BT was FAIL then **strategy fix → BT PASS** (+72% vs eq+39%/mom+44%). Ranked top-5 + mom blend. |
 | 2026-07-27 EOD | **98,284** | 2,126 | 7 | 0 | Deployed; top_n book |
 | 2026-07-28 EOD | **97,810** | 2,126 | — | — | equity=$97,809.78 · cash=$2,126.28 · bp=$276,418.92 |
+| 2026-07-29 EOD | **97,190** | 805 | — | — | equity=$97,190.00 · cash=$805.42 · bp=$273,098.50 |
 
 ### Weekly model check — 2026-07-25
 
@@ -163,6 +164,15 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | buying_power | **$276,418.92** |
 | note | vs 7/27 EOD: equity −$474.68 · cash flat |
 
+### EOD — 2026-07-29 (Wed)
+
+| Field | Value |
+|-------|--------|
+| equity | **$97,190.00** |
+| cash | **$805.42** |
+| buying_power | **$273,098.50** |
+| note | vs 7/28 EOD: equity −$619.78 · cash −$1,320.86 (further deployed) |
+
 ---
 
 ## Copy-paste
@@ -186,4 +196,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-07-28 EOD (equity $97,809.78 · cash $2,126.28 · bp $276,418.92)
+Last updated: 2026-07-29 EOD (equity $97,190.00 · cash $805.42 · bp $273,098.50)
