@@ -3,9 +3,9 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-29 (Wed) EOD — equity $97,190.00  
+**Last ops review:** 2026-07-30 (Thu) EOD — equity $96,416.02  
 **Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · 3/3 windows)  
-**Next RTH:** 2026-07-30 09:30 ET  
+**Next RTH:** 2026-07-31 09:30 ET  
 **Day loop:** `status` → `desk` → advise-only unless promote+RTH  
 **Do not:** mid-week retrain unless weekly / open experiment
 
@@ -130,6 +130,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-27 EOD | **98,284** | 2,126 | 7 | 0 | Deployed; top_n book |
 | 2026-07-28 EOD | **97,810** | 2,126 | — | — | equity=$97,809.78 · cash=$2,126.28 · bp=$276,418.92 |
 | 2026-07-29 EOD | **97,190** | 805 | — | — | equity=$97,190.00 · cash=$805.42 · bp=$273,098.50 |
+| 2026-07-30 EOD | **96,416** | 805 | 7 | 0 | equity=$96,416.02 · cash=$805.38 · bp=$270,931.31 · NOW lead / PLTR lag |
 
 ### Weekly model check — 2026-07-25
 
@@ -173,6 +174,30 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | buying_power | **$273,098.50** |
 | note | vs 7/28 EOD: equity −$619.78 · cash −$1,320.86 (further deployed) |
 
+### EOD — 2026-07-30 (Thu)
+
+| Field | Value |
+|-------|--------|
+| equity | **$96,416.02** |
+| cash | **$805.38** |
+| buying_power | **$270,931.31** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| names | AVGO JNJ JPM KO NOW PEP PLTR |
+| uPL leaders | NOW +$1,112 · AVGO +$418 · JPM +$94 |
+| uPL laggards | PLTR −$834 · PEP −$398 · KO −$303 · JNJ −$184 |
+| note | vs 7/29 EOD: equity −$773.98 · cash flat · book rotated (CEG/NVDA out; KO/PEP in) |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AVGO | 36 | $14,004.00 | 389.00 | +$418.32 |
+| JNJ | 51 | $13,035.09 | 255.59 | −$184.36 |
+| JPM | 38 | $13,338.76 | 351.02 | +$93.87 |
+| KO | 156 | $13,771.68 | 88.28 | −$302.64 |
+| NOW | 135 | $14,786.55 | 109.53 | +$1,112.40 |
+| PEP | 96 | $13,394.88 | 139.53 | −$398.40 |
+| PLTR | 108 | $13,279.68 | 122.96 | −$833.77 |
+
 ---
 
 ## Copy-paste
@@ -196,4 +221,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-07-29 EOD (equity $97,190.00 · cash $805.42 · bp $273,098.50)
+Last updated: 2026-07-30 EOD (equity $96,416.02 · cash $805.38 · bp $270,931.31 · 7 pos)
