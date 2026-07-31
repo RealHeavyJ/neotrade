@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from neotrade.config.load import project_root
 
@@ -124,7 +125,7 @@ def load_posts(
         post = SocialPost.from_dict(data)
         if cutoff is not None and post.ts:
             try:
-                pt = datetime.fromisoformat(post.ts.replace("Z", "+00:00"))
+                pt = datetime.fromisoformat(post.ts)
                 if pt.timestamp() < cutoff:
                     continue
             except ValueError:

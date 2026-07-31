@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from neotrade.social.cache import SocialPost
 

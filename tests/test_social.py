@@ -256,8 +256,9 @@ def test_desk_packet_includes_social_in_prompt():
 
 
 def test_cli_social_status(tmp_path: Path, monkeypatch):
-    from neotrade.cli.social_cmds import cmd_social
     import argparse
+
+    from neotrade.cli.social_cmds import cmd_social
 
     monkeypatch.setenv("NEOTRADE_ROOT", str(tmp_path))
     (tmp_path / "config").mkdir(parents=True)

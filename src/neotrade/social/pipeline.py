@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from neotrade.logging_config import get_logger
 from neotrade.social.accounts import SocialAccount, default_accounts_path, load_social_accounts
