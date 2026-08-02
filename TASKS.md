@@ -128,12 +128,13 @@ See `docs/FUTURE_EPOCHS_AND_LOGS.md`.
 - Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**Session 2026-07-25 (T9 social A+B).** Score **10.0** · tests **148** · promote untouched.  
-**Next (default): Mon RTH research week** — not T7/T8; optional daily `social fetch`.  
+**Session 2026-08-01 regime exp KEPT.** Score **10.0** · bare promote **PASS** 3/3 · **0 open**.  
+**Shipped:** `BT_USE_REGIME=False` + CLI honors defaults (bugfix).  
+**Next (default):** Mon RTH ops · weekly keep promote honest · optional vol-feature ablate BT (one exp) later.  
 ```
-status → desk → one experiment → train/eval[/ablate]/backtest → experiment complete
-# optional archive: export X_BEARER_TOKEN; neotrade social fetch; NEOTRADE_SOCIAL_ENABLED=1 for desk
+neotrade status && neotrade desk
+# RTH only: paper-plan → paper-execute --confirm if intentional
 ```
-**Later eng:** T8 snapshot/diff first · T7 when log pain · reset last.
+**Later eng:** T8 snapshot/diff · T7 when log pain.
 
-Last updated: 2026-07-25
+Last updated: 2026-08-01

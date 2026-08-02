@@ -42,7 +42,7 @@ BT_FILL: Final[str] = "next_open"
 BT_WINDOWS: Final[int] = 3
 BT_MIN_WINDOW_PASS: Final[float] = 0.67
 BT_MIN_SHARPE: Final[float] = 0.35
-BT_USE_REGIME: Final[bool] = True
+BT_USE_REGIME: Final[bool] = False
 BT_REQUIRE_BOTH_BASELINES: Final[bool] = False  # True = harder; opt-in via --require-both
 BT_PERIOD: Final[str] = DATA_PERIOD
 # Fill calibration (see broker/fills.py)

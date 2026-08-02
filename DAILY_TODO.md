@@ -3,11 +3,11 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-07-30 (Thu) EOD — equity $96,416.02  
-**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · 3/3 windows)  
-**Next RTH:** 2026-07-31 09:30 ET  
-**Day loop:** `status` → `desk` → advise-only unless promote+RTH  
-**Do not:** mid-week retrain unless weekly / open experiment
+**Last ops review:** 2026-08-01 (Sat) — `BT_USE_REGIME=False` locked · bare promote **PASS** 3/3  
+**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · regime OFF · 3/3 windows)  
+**Next RTH:** 2026-08-03 09:30 ET  
+**Mon:** status → desk → intentional execute OK if RTH + plan  
+**Do not:** multi-open exps · re-enable BT regime without new exp
 
 ---
 
@@ -131,6 +131,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-28 EOD | **97,810** | 2,126 | — | — | equity=$97,809.78 · cash=$2,126.28 · bp=$276,418.92 |
 | 2026-07-29 EOD | **97,190** | 805 | — | — | equity=$97,190.00 · cash=$805.42 · bp=$273,098.50 |
 | 2026-07-30 EOD | **96,416** | 805 | 7 | 0 | equity=$96,416.02 · cash=$805.38 · bp=$270,931.31 · NOW lead / PLTR lag |
+| 2026-07-31 AH | **96,903** | 853 | 7 | 0 | equity=$96,902.96 · cash=$853.18 · bp=$272,352.11 · NOW lead / KO lag |
 
 ### Weekly model check — 2026-07-25
 
@@ -140,6 +141,46 @@ source .venv/bin/activate    # must source, not execute
 | `backtest` (after fix) | signal **+71.9%** · eq **+39%** · mom **+44%** · maxDD 21.9% · sharpe 2.29 |
 | Gate | **PASS** — ranked top-N + 40/60 model·mom blend |
 | Action | Promote OK on this window; re-run BT after each weekly train |
+
+### Weekly model check — 2026-07-31
+
+| Check | Result |
+|-------|--------|
+| `fetch` → `train` → `eval` → `backtest` | ran (~0.5h artifact age) |
+| `eval` | mean_acc **0.498** · vs always-long **−0.002** · vs mom **+0.012** · Brier 0.264 · leakage OK |
+| `backtest` full sample | signal **+215%** · eq **+116%** · mom **+138%** · maxDD **21.9%** · sharpe **2.43** · full_gate **PASS** |
+| stable multi-window | **1/3** pass (need ≥2/3) → **stable_gate FAIL** → **promote=FAIL** |
+| W0 2024-07→2025-08 | sig +15% · eq +19% · mom +19% · FAIL (lost to baselines) |
+| W1 2025-01→2026-02 | sig +46% · eq +40% · mom +42% · **PASS** |
+| W2 2025-06→2026-07 | sig +7% · eq +22% · mom +37% · FAIL (recent window weak) |
+| Experiments | rebal=7 runs closed (mix fail/abandon; one historical pass) · **0 open** |
+| Fills | n=1/20 (no slip calib yet) |
+| Action | **Do not promote** new confidence; paper book OK to hold; research = why W0/W2 lose |
+
+### Research B — 2026-08-01 (stable_gate diagnose)
+
+| Check | Result |
+|-------|--------|
+| Exp | `4173bf84` complete · outcome auto **fail** (defaults unchanged; promote still false) |
+| `eval --ablate` | baseline acc **0.501** edge_mom **+0.014** |
+| most useful groups | **returns** (Δacc −0.007) · **cs** (−0.007) · volume/trend ~flat |
+| slightly harmful | **vol** (dropping it Δacc **+0.0045**) — do not drop yet without BT confirm |
+| bare BT (regime ON, no-save) | full PASS · stable **2/3** · W2 FAIL sig +15% vs mom +41% · promote **FAIL** |
+| A/B `--no-regime` (no-save) | full PASS · stable **3/3** · W2 PASS sig +35% · promote **True** |
+| Prior | rebal=7 mostly fail — leave **rebal=14** |
+| Learning | Regime filter helps risk-off narrative but **hurts recent window vs mom** on this tape |
+| Next exp (one) | `BT_USE_REGIME=False` → bare `backtest` **with save** → keep only if stable PASS holds · else revert |
+
+### Research — 2026-08-01 exp `BT_USE_REGIME=False` **KEPT**
+
+| Check | Result |
+|-------|--------|
+| Code | `defaults.BT_USE_REGIME=False` · `BacktestConfig` field aligned · CLI uses `D.BT_USE_REGIME` (was ignoring default) |
+| bare `backtest` (save) | regime=False · full PASS · stable **3/3** · promote **PASS** |
+| signal | ret **+191%** · maxDD **23.9%** · sharpe **2.26** · vs eq +60% · vs mom +63% |
+| W0/W1/W2 | all PASS (W2 sig +35% vs prior FAIL under regime ON) |
+| CI | `./scripts/ci_local.sh` OK · **149** passed |
+| Note | Live score blend still regime-aware; only **portfolio BT** filter off |
 
 ### Latest book snapshot — 2026-07-25
 
@@ -198,6 +239,30 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | PEP | 96 | $13,394.88 | 139.53 | −$398.40 |
 | PLTR | 108 | $13,279.68 | 122.96 | −$833.77 |
 
+### EOD/AH — 2026-07-31 (Fri)
+
+| Field | Value |
+|-------|--------|
+| equity | **$96,902.96** |
+| cash | **$853.18** |
+| buying_power | **$272,352.11** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| names | AVGO CEG ETN JPM KO NOW NVDA |
+| uPL leaders | NOW +$1,229 · ETN +$389 · AVGO +$378 · NVDA +$241 · JPM +$121 |
+| uPL laggards | KO −$393 · CEG +$8 flat |
+| note | vs 7/30 EOD: equity +$486.94 · cash +$47.80 · book rotated (JNJ/PEP/PLTR out; CEG/ETN/NVDA in) |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AVGO | 36 | $13,964.04 | 387.89 | +$378.36 |
+| CEG | 52 | $13,593.88 | 261.42 | +$7.84 |
+| ETN | 31 | $12,789.67 | 412.57 | +$388.74 |
+| JPM | 38 | $13,366.12 | 351.74 | +$121.23 |
+| KO | 156 | $13,681.20 | 87.70 | −$393.12 |
+| NOW | 135 | $14,903.18 | 110.39 | +$1,229.03 |
+| NVDA | 69 | $13,751.70 | 199.30 | +$241.48 |
+
 ---
 
 ## Copy-paste
@@ -221,4 +286,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-07-30 EOD (equity $96,416.02 · cash $805.38 · bp $270,931.31 · 7 pos)
+Last updated: 2026-08-01 BT_USE_REGIME=False KEPT · bare promote PASS 3/3

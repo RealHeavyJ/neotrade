@@ -17,10 +17,11 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Broker | Alpaca **paper** only |
 | Data | Alpaca MD REST (`iex`) + yfinance fallback |
 | Universe | neotrade-core-22 (15 growth / 7 defensive sleeves) |
-| Risk | ranked top-5 · max name 18% · execute needs `--confirm` |
-| Score blend | Regime-aware model/mom blend (default ~40/60) |
+| Risk | ranked top_n=7 · rebal=14 · execute needs `--confirm` |
+| Score blend | Live signals: regime-aware model/mom blend (~40/60) still on |
+| BT regime | **`BT_USE_REGIME=False`** (2026-08-01) — portfolio BT no regime filter; bare promote 3/3 |
 | Promote | bare `neotrade backtest` exit 0 (2y+slip+windows+stress); flags = ablation only |
-| Defaults | `src/neotrade/defaults.py` — production-strict; CLI opt-out |
+| Defaults | `src/neotrade/defaults.py` — production-strict; CLI honors `BT_USE_REGIME` |
 | Slip | `defaults.effective_slip_bps()` from fill calib when n≥20 |
 | Hardware | MacBook Neo · A18 Pro · 8 GB — log/epoch designs must fit local RAM |
 | Future eng | T8 paper eras first (snapshot/diff/reset); T7 logs when pain — design doc |

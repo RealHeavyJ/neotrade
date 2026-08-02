@@ -14,30 +14,26 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-07-25 T9 social) — RESTART HERE
+## Session end checkpoint (2026-08-01 regime default KEPT) — RESTART HERE
 
 ### Shipped
-- **T9 Phase A+B:** `neotrade social` module — X fetch/cache/lexicon grade, desk context  
-  - Package `src/neotrade/social/`, CLI fetch/status/summary, `config/social_accounts.yaml`  
-  - Desk SOCIAL block only if `NEOTRADE_SOCIAL_ENABLED=1`; **not** LightGBM train; promote untouched  
-  - Docs: `docs/social_module.md`  
-- Prior: promote PASS path, T1–T6 eng pack  
+- **`BT_USE_REGIME=False`** production default (bare BT 3/3 stable PASS, promote PASS)
+- CLI bugfix: bare `backtest` now honors `D.BT_USE_REGIME` (was always ON unless `--no-regime`)
+- Tests: `test_defaults` asserts regime off · CI **149** passed
+- Prior same day: ablate (returns+cs useful; vol slightly harmful)
 
 ### Live
 ```
-promote path unchanged · score 10.0 · 148 tests · social default OFF
+promote=PASS · stable 3/3 · regime BT off · score 10.0 · 0 open · paper ~$96.9k
 ```
 
-### Next session default (Mon research — not eng)
+### Next session default
 ```
-neotrade status
-neotrade desk
-# one experiment only →
-neotrade train && neotrade eval && neotrade backtest
-neotrade experiment complete --latest
-# optional archive: X_BEARER_TOKEN + neotrade social fetch (daily)
+# Mon ops
+neotrade status && neotrade desk
+# execute only RTH + --confirm if intentional
 ```
-Execute only RTH + `--confirm` + promote yes. `fills --apply` when n≥20.
+`fills --apply` when n≥20.
 
 ### Later eng (not next)
 T8a snapshot/diff → T8c reset · T7 when learning/ grows — `docs/FUTURE_EPOCHS_AND_LOGS.md`

@@ -68,7 +68,7 @@ class BacktestConfig:
     min_window_pass_frac: float = 0.67
     require_both_baselines: bool = False
     min_sharpe: float = 0.35
-    use_regime: bool = True
+    use_regime: bool = False
     cost_stress_bps: float = 10.0
     slip_stress_bps: float = 15.0
 

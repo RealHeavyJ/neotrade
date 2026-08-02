@@ -146,10 +146,12 @@ def cmd_backtest(args: argparse.Namespace) -> int:
         for err in bars.errors:
             print(f"warn: {err}", file=sys.stderr)
     train_days = D.train_days_for_period(period, explicit=args.train_days)
+    # --no-regime forces off; else production default (BT_USE_REGIME)
+    use_regime = False if bool(args.no_regime) else bool(D.BT_USE_REGIME)
     print(
         f"bt: period={period} train_days={train_days} "
         f"cost={args.cost_bps}bps slip={args.slip_bps}bps "
-        f"windows={args.windows} regime={not args.no_regime} "
+        f"windows={args.windows} regime={use_regime} "
         f"stress cost/slip={args.cost_stress_bps}/{args.slip_stress_bps}"
     )
     bt = BacktestConfig(
@@ -167,7 +169,7 @@ def cmd_backtest(args: argparse.Namespace) -> int:
         momentum_top_n=int(args.momentum_top_n),
         n_windows=int(args.windows),
         min_window_pass_frac=float(args.min_window_pass),
-        use_regime=not args.no_regime,
+        use_regime=use_regime,
         cost_stress_bps=float(args.cost_stress_bps),
         slip_stress_bps=float(args.slip_stress_bps),
         min_sharpe=float(args.min_sharpe),

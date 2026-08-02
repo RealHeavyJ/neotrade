@@ -10,7 +10,8 @@ def test_backtest_production_matches_module_defaults():
     assert bt.slip_bps == D.BT_SLIP_BPS
     assert bt.cost_bps == D.BT_COST_BPS
     assert bt.n_windows == D.BT_WINDOWS
-    assert bt.use_regime is True
+    assert bt.use_regime is D.BT_USE_REGIME
+    assert bt.use_regime is False
     assert bt.slip_stress_bps == D.BT_SLIP_STRESS_BPS
 
 
