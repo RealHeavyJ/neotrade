@@ -60,9 +60,15 @@ def test_parse_blocks_execute_off_rth():
 
 def test_run_desk_with_mock_and_injected_packet(tmp_path: Path, monkeypatch):
     from neotrade.agents import desk as desk_mod
+    from neotrade.learning import experiments as exp_mod
+    from neotrade.learning import log as log_mod
 
+    learning = tmp_path / "data" / "learning"
+    learning.mkdir(parents=True)
     monkeypatch.setattr(desk_mod, "project_root", lambda: tmp_path)
-    (tmp_path / "data" / "learning").mkdir(parents=True)
+    monkeypatch.setattr(exp_mod, "project_root", lambda: tmp_path)
+    monkeypatch.setattr(exp_mod, "learning_dir", lambda: learning)
+    monkeypatch.setattr(log_mod, "project_root", lambda: tmp_path)
     pkt = _packet(promote_ok=True, allow_execute=False)
     report = run_desk(
         model_path=tmp_path / "missing.txt",
@@ -75,4 +81,6 @@ def test_run_desk_with_mock_and_injected_packet(tmp_path: Path, monkeypatch):
     assert report.pm_raw
     assert report.critic_raw
     assert report.human_todo
-    assert (tmp_path / "data" / "learning" / "desk_latest.json").is_file()
+    assert (learning / "desk_latest.json").is_file()
+    # Mock EXPERIMENT writes only under tmp_path (not the real repo ledger)
+    assert list(exp_mod.list_experiments(status="open"))

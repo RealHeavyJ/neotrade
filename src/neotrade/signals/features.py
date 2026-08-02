@@ -277,8 +277,29 @@ def add_cross_section_features(
     return out
 
 
-def model_feature_names(*, include_cs: bool = True) -> list[str]:
-    """Feature list used by SignalModel / eval."""
-    if include_cs:
-        return list(ALL_MODEL_FEATURES)
-    return list(FEATURE_COLUMNS)
+def model_feature_names(
+    *,
+    include_cs: bool = True,
+    exclude_groups: tuple[str, ...] | list[str] | None = None,
+) -> list[str]:
+    """Feature list used by SignalModel / eval / backtest.
+
+    Args:
+        include_cs: Include cross-sectional rank columns.
+        exclude_groups: Names from :data:`FEATURE_GROUPS` to drop. When ``None``,
+            uses ``defaults.FEATURE_EXCLUDE_GROUPS``.
+    """
+    if exclude_groups is None:
+        try:
+            from neotrade import defaults as d
+
+            exclude_groups = tuple(getattr(d, "FEATURE_EXCLUDE_GROUPS", ()) or ())
+        except ImportError:
+            exclude_groups = ()
+    names = list(ALL_MODEL_FEATURES if include_cs else FEATURE_COLUMNS)
+    if not exclude_groups:
+        return names
+    drop: set[str] = set()
+    for g in exclude_groups:
+        drop.update(FEATURE_GROUPS.get(str(g), ()))
+    return [n for n in names if n not in drop]

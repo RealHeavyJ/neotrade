@@ -14,24 +14,24 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-08-01 regime default KEPT) — RESTART HERE
+## Session end checkpoint (2026-08-01 vol-drop KEPT) — RESTART HERE
 
 ### Shipped
-- **`BT_USE_REGIME=False`** production default (bare BT 3/3 stable PASS, promote PASS)
-- CLI bugfix: bare `backtest` now honors `D.BT_USE_REGIME` (was always ON unless `--no-regime`)
-- Tests: `test_defaults` asserts regime off · CI **149** passed
-- Prior same day: ablate (returns+cs useful; vol slightly harmful)
+- **`FEATURE_EXCLUDE_GROUPS=("vol",)`** — model 26 feats; bare BT **+194.5%** · 3/3 · promote PASS
+- `model_feature_names` reads exclude groups from defaults
+- Prior same day: **`BT_USE_REGIME=False`** + CLI honors it
+- Fix: `test_desk` isolates experiment ledger (stop mock desk opening real rebal exps)
+- train/eval/BT refreshed (ages 0h)
 
 ### Live
 ```
-promote=PASS · stable 3/3 · regime BT off · score 10.0 · 0 open · paper ~$96.9k
+promote=PASS · 3/3 · regime BT off · no vol feats · score 10.0 · 0 open · paper ~$96.9k
 ```
 
 ### Next session default
 ```
-# Mon ops
+# Mon ops + commit uncommitted research
 neotrade status && neotrade desk
-# execute only RTH + --confirm if intentional
 ```
 `fills --apply` when n≥20.
 

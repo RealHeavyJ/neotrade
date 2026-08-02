@@ -3,11 +3,11 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-08-01 (Sat) — `BT_USE_REGIME=False` locked · bare promote **PASS** 3/3  
-**Model gate:** bare `backtest` **PASS** (top_n=7 rebal=14 · regime OFF · 3/3 windows)  
+**Last ops review:** 2026-08-01 (Sat) — regime OFF + **vol features dropped** · promote **PASS** 3/3  
+**Model gate:** bare BT **PASS** · sig **+194.5%** · top_n=7 rebal=14 · regime OFF · no vol group  
 **Next RTH:** 2026-08-03 09:30 ET  
 **Mon:** status → desk → intentional execute OK if RTH + plan  
-**Do not:** multi-open exps · re-enable BT regime without new exp
+**Do not:** multi-open exps · stack more feature drops without one exp
 
 ---
 
@@ -182,6 +182,18 @@ source .venv/bin/activate    # must source, not execute
 | CI | `./scripts/ci_local.sh` OK · **149** passed |
 | Note | Live score blend still regime-aware; only **portfolio BT** filter off |
 
+### Research — 2026-08-01 exp drop `vol` group **KEPT**
+
+| Check | Result |
+|-------|--------|
+| Code | `FEATURE_EXCLUDE_GROUPS=("vol",)` + `model_feature_names` honors it |
+| Features | 31 → **26** (dropped vol_10/20, vol_ratio, atr_14_pct, high_low_range) |
+| bare BT | promote **PASS** · stable **3/3** · sig **+194.5%** (was +191.2%) |
+| W2 | **+42.8%** (was +34.7%) · still beats eq; under mom slightly OK for gate |
+| Tradeoff | maxDD **25.7%** vs 23.9% · sharpe **2.22** vs 2.26 |
+| eval/model | refreshed age **0h** · mean_acc 0.497 · edge_mom +0.011 |
+| #3 hygiene | **done** as part of this train/eval/BT |
+
 ### Latest book snapshot — 2026-07-25
 
 equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (execute blocked until Mon RTH)
@@ -286,4 +298,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-08-01 BT_USE_REGIME=False KEPT · bare promote PASS 3/3
+Last updated: 2026-08-01 vol-drop KEPT · promote PASS +194.5% · eval age 0h

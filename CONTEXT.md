@@ -20,6 +20,7 @@ Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 | Risk | ranked top_n=7 · rebal=14 · execute needs `--confirm` |
 | Score blend | Live signals: regime-aware model/mom blend (~40/60) still on |
 | BT regime | **`BT_USE_REGIME=False`** (2026-08-01) — portfolio BT no regime filter; bare promote 3/3 |
+| Features | `FEATURE_EXCLUDE_GROUPS=("vol",)` (2026-08-01) — vol_* dropped; 26 feats |
 | Promote | bare `neotrade backtest` exit 0 (2y+slip+windows+stress); flags = ablation only |
 | Defaults | `src/neotrade/defaults.py` — production-strict; CLI honors `BT_USE_REGIME` |
 | Slip | `defaults.effective_slip_bps()` from fill calib when n≥20 |

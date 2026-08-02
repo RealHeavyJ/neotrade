@@ -34,3 +34,13 @@ def test_promote_path_book_defaults():
     bt = BacktestConfig.production()
     assert bt.rebalance_every == 14
     assert bt.momentum_top_n == 7
+
+
+def test_feature_exclude_vol_group():
+    from neotrade.signals.features import FEATURE_GROUPS, model_feature_names
+
+    assert D.FEATURE_EXCLUDE_GROUPS == ("vol",)
+    names = model_feature_names()
+    for col in FEATURE_GROUPS["vol"]:
+        assert col not in names
+    assert len(names) == len(model_feature_names(exclude_groups=())) - len(FEATURE_GROUPS["vol"])

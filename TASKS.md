@@ -128,9 +128,9 @@ See `docs/FUTURE_EPOCHS_AND_LOGS.md`.
 - Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**Session 2026-08-01 regime exp KEPT.** Score **10.0** · bare promote **PASS** 3/3 · **0 open**.  
-**Shipped:** `BT_USE_REGIME=False` + CLI honors defaults (bugfix).  
-**Next (default):** Mon RTH ops · weekly keep promote honest · optional vol-feature ablate BT (one exp) later.  
+**Session 2026-08-01 research pack.** Score **10.0** · promote **PASS** 3/3 · **0 open**.  
+**Shipped:** `BT_USE_REGIME=False` · `FEATURE_EXCLUDE_GROUPS=(vol,)` · desk test no longer pollutes exp ledger.  
+**Next (default):** Mon RTH ops · commit when ready.  
 ```
 neotrade status && neotrade desk
 # RTH only: paper-plan → paper-execute --confirm if intentional

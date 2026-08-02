@@ -23,6 +23,8 @@ TRAIN_HORIZON: Final[int] = 5
 TRAIN_ROUNDS: Final[int] = 160
 TRAIN_VALID_FRACTION: Final[float] = 0.2
 TRAIN_LABEL_MODE: Final[str] = "relative"  # relative | absolute
+# Feature groups to omit from model_feature_names (see signals.features.FEATURE_GROUPS)
+FEATURE_EXCLUDE_GROUPS: Final[tuple[str, ...]] = ("vol",)
 
 # --- Eval ---
 EVAL_FOLDS: Final[int] = 4
