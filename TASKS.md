@@ -34,7 +34,7 @@ moves quality toward 8.5+ without rebuilding v1.
 - [x] Calibration bins + Brier score
 - [x] Leakage audit notes + structural checks
 - [x] Baselines: always-long + momentum (`ret_5>0`); edge reported
-- [ ] Optional: purged CV / embargo beyond expanding WF
+- [ ] Optional: purged CV / embargo beyond expanding WF — see **Future: ML honesty leftovers**
 - [x] Feature upgrade + relative labels + CS ranks (2026-07-20)
 - [x] Portfolio walk-forward **backtest** + promotion gate (`neotrade backtest`)
 - [x] Improve strategy: ranked top-N + model/mom blend → BT **PASS** (2026-07-25)
@@ -124,17 +124,32 @@ See `docs/FUTURE_EPOCHS_AND_LOGS.md`.
 - [x] `docs/FEATURE_REQUEST_REVIEW.md`  
 - [x] Desk QUANT/CRITIC **BLIND_SPOT**  
 
+### Future: ML honesty leftovers (not this week — anti-overfit already strong)
+
+Core covered: time-ordered WF eval, portfolio WF BT, costs/slip + stress, multi-window stable_gate, baselines, leakage notes, ablate, paper forward test, one-open exps. **Do not rebuild.**
+
+| ID | Idea | Trigger to start | Priority |
+|----|------|------------------|----------|
+| H1 | **Embargo-lite** on eval folds (gap bars after train end) | After 2+ weeklies where promote flips on noise | P2 |
+| H2 | Full **purged/embargo CV** (López de Prado style) | Only if H1 insufficient / academic need | P3 |
+| H3 | BT **holdout strip** summary (last N months metrics called out) | Want clearer “recent OOS” without new gate | P2 |
+| H4 | Default **`--require-both`** baselines | Exp only if promote too easy / overconfident | P3 |
+| H5 | **T8** era snapshot/diff (numbers) | Before paper reset or multi-era compare | P1 eng later |
+| H6 | Fill slip calib live | When fills **n≥20** | Ops |
+
+**Never as “fix overfitting”:** more tickers, deeper trees, auto-tune, train on desk/Ollama prose, multi-open experiments.
+
 ### Do not (always)
 - Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**Session 2026-08-01 research pack.** Score **10.0** · promote **PASS** 3/3 · **0 open**.  
-**Shipped:** `BT_USE_REGIME=False` · `FEATURE_EXCLUDE_GROUPS=(vol,)` · desk test no longer pollutes exp ledger.  
-**Next (default):** Mon RTH ops · commit when ready.  
+**2026-08-04 Mon — stay the course (ops + learning).** Score **10.0** · promote **PASS** 3/3 · research pack shipped.  
+**Default:** daily `DAILY_TODO` loop · no new eng unless H1–H5 triggered.  
 ```
-neotrade status && neotrade desk
-# RTH only: paper-plan → paper-execute --confirm if intentional
+neotrade status && neotrade session && neotrade quotes && neotrade account
+neotrade signals && neotrade paper-plan && neotrade desk
+# RTH + intentional only: paper-execute --confirm
 ```
-**Later eng:** T8 snapshot/diff · T7 when log pain.
+**Later eng:** T8 (H5) first · H1 embargo-lite · T7 when log pain.
 
-Last updated: 2026-08-01
+Last updated: 2026-08-04
