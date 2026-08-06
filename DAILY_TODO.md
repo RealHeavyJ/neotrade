@@ -3,10 +3,10 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-08-01 (Sat) — regime OFF + **vol features dropped** · promote **PASS** 3/3  
+**Last ops review:** 2026-08-05 (Tue) EOD — equity **$101,468.86**  
 **Model gate:** bare BT **PASS** · sig **+194.5%** · top_n=7 rebal=14 · regime OFF · no vol group  
-**Next RTH:** 2026-08-03 09:30 ET  
-**Mon:** status → desk → intentional execute OK if RTH + plan  
+**Next RTH:** 2026-08-06 09:30 ET  
+**Day loop:** status → desk → intentional execute OK if RTH + plan  
 **Do not:** multi-open exps · stack more feature drops without one exp
 
 ---
@@ -132,6 +132,8 @@ source .venv/bin/activate    # must source, not execute
 | 2026-07-29 EOD | **97,190** | 805 | — | — | equity=$97,190.00 · cash=$805.42 · bp=$273,098.50 |
 | 2026-07-30 EOD | **96,416** | 805 | 7 | 0 | equity=$96,416.02 · cash=$805.38 · bp=$270,931.31 · NOW lead / PLTR lag |
 | 2026-07-31 AH | **96,903** | 853 | 7 | 0 | equity=$96,902.96 · cash=$853.18 · bp=$272,352.11 · NOW lead / KO lag |
+| 2026-08-04 EOD | **101,762** | 853 | 7 | 0 | equity=$101,761.60 · cash=$853.12 · bp=$285,956.22 · NOW/AVGO/ETN/NVDA lead · KO lag |
+| 2026-08-05 EOD | **101,469** | 1,280 | 7 | 0 | equity=$101,468.86 · cash=$1,279.83 · bp=$285,648.60 · NVDA/AVGO/ETN lead · PLTR/CRWD lag |
 
 ### Weekly model check — 2026-07-25
 
@@ -275,6 +277,55 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | NOW | 135 | $14,903.18 | 110.39 | +$1,229.03 |
 | NVDA | 69 | $13,751.70 | 199.30 | +$241.48 |
 
+### EOD — 2026-08-04 (Mon)
+
+| Field | Value |
+|-------|--------|
+| equity | **$101,761.60** |
+| cash | **$853.12** |
+| buying_power | **$285,956.22** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| names | AVGO CEG ETN JPM KO NOW NVDA |
+| uPL leaders | NOW +$2,240 · AVGO +$1,484 · ETN +$1,415 · NVDA +$1,408 · CEG +$466 · JPM +$363 |
+| uPL laggards | KO −$543 |
+| fill_calib | n=1/20 · bt_slip_bps=5.0 · median=1.7 |
+| note | vs 7/31 AH: equity **+$4,858.64** · cash flat · same 7 names · book recovered above $100k start |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AVGO | 36 | $15,069.60 | 418.60 | +$1,483.92 |
+| CEG | 52 | $14,051.96 | 270.23 | +$465.92 |
+| ETN | 31 | $13,816.08 | 445.68 | +$1,415.15 |
+| JPM | 38 | $13,607.80 | 358.10 | +$362.91 |
+| KO | 156 | $13,531.44 | 86.74 | −$542.88 |
+| NOW | 135 | $15,913.80 | 117.88 | +$2,239.65 |
+| NVDA | 69 | $14,917.80 | 216.20 | +$1,407.58 |
+
+### EOD — 2026-08-05 (Tue)
+
+| Field | Value |
+|-------|--------|
+| equity | **$101,468.86** |
+| cash | **$1,279.83** |
+| buying_power | **$285,648.60** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| names | AVGO CEG CRWD ETN JPM NVDA PLTR |
+| uPL leaders | NVDA +$1,676 · AVGO +$1,525 · ETN +$1,441 · JPM +$417 · CEG +$318 |
+| uPL laggards | PLTR −$273 · CRWD −$242 |
+| note | vs 8/04 EOD: equity **−$292.74** · cash **+$426.71** · book rotated (KO/NOW out; CRWD/PLTR in) |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AVGO | 36 | $15,111.00 | 419.75 | +$1,525.32 |
+| CEG | 52 | $13,904.28 | 267.39 | +$318.24 |
+| CRWD | 68 | $14,263.00 | 209.75 | −$242.08 |
+| ETN | 31 | $13,841.50 | 446.50 | +$1,440.57 |
+| JPM | 38 | $13,662.14 | 359.53 | +$417.25 |
+| NVDA | 69 | $15,186.21 | 220.09 | +$1,675.99 |
+| PLTR | 90 | $14,220.90 | 158.01 | −$272.58 |
+
 ---
 
 ## Copy-paste
@@ -298,4 +349,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-08-01 vol-drop KEPT · promote PASS +194.5% · eval age 0h
+Last updated: 2026-08-05 EOD (equity $101,468.86 · cash $1,279.83 · bp $285,648.60 · 7 pos)
