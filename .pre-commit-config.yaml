@@ -2,13 +2,18 @@
 # Blocks commits that would fail CI ruff/pytest collection.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.2
+    rev: v0.16.1
     hooks:
       - id: ruff
         args: [check, --fix, src/neotrade, tests]
         pass_filenames: false
   - repo: local
     hooks:
+      - id: no-exec-py
+        name: strip +x from library .py (ruff EXE002)
+        entry: bash -c 'find src/neotrade tests -name "*.py" -type f -exec chmod a-x {} +'
+        language: system
+        pass_filenames: false
       - id: pytest-quick
         name: pytest -q
         entry: bash -c 'source .venv/bin/activate 2>/dev/null; pytest -q'

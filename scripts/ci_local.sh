@@ -13,6 +13,12 @@ fi
 echo "==> pip install -e .[dev]"
 pip install -e ".[dev]" -q
 
+# Library modules must not be +x (ruff EXE002). Copy/sync tools often set this.
+echo "==> normalize non-script file modes (EXE002 guard)"
+find src/neotrade tests -name '*.py' -type f -exec chmod a-x {} +
+# Keep real CLI entry scripts executable only under scripts/
+find scripts -type f \( -name '*.sh' -o -name '*.py' \) -exec chmod a+x {} + 2>/dev/null || true
+
 echo "==> ruff check src/neotrade tests"
 ruff check src/neotrade tests
 
