@@ -14,24 +14,22 @@ Ops-only day → `DAILY_TODO.md` status log only (skip eng files).
 
 ---
 
-## Session end checkpoint (2026-08-01 vol-drop KEPT) — RESTART HERE
+## Session end checkpoint (2026-08-10 model card + H3) — RESTART HERE
 
 ### Shipped
-- **`FEATURE_EXCLUDE_GROUPS=("vol",)`** — model 26 feats; bare BT **+194.5%** · 3/3 · promote PASS
-- `model_feature_names` reads exclude groups from defaults
-- Prior same day: **`BT_USE_REGIME=False`** + CLI honors it
-- Fix: `test_desk` isolates experiment ledger (stop mock desk opening real rebal exps)
-- train/eval/BT refreshed (ages 0h)
+- **Model card (read-only):** `neotrade status` shows LGBM params, features, exclude_groups, best_iteration from meta
+- Train events log params/features (history only — no model change)
+- **H3:** OOS window min/med/mean/max Sharpe + worst edge on BT + status
 
 ### Live
 ```
-promote=PASS · 3/3 · regime BT off · no vol feats · score 10.0 · 0 open · paper ~$96.9k
+promote=FAIL (2/3) · paper ~$104k · score 10.0 · status = gates + model card
 ```
 
 ### Next session default
 ```
-# Mon ops + commit uncommitted research
-neotrade status && neotrade desk
+neotrade status   # promote + oos note + model card
+neotrade weekly   # when ages stale
 ```
 `fills --apply` when n≥20.
 

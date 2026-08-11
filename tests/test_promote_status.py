@@ -85,11 +85,30 @@ def test_load_promote_status_with_bt(tmp_path, monkeypatch):
         "gate": {"pass": True, "reasons": []},
         "stable_gate": {"pass": True, "reasons": []},
         "signal": {"total_return": 0.5, "sharpe": 1.2, "max_drawdown": 0.1},
-        "config": {"top_n": 7, "rebalance_every": 14},
-        "windows": [{"gate_pass": True}, {"gate_pass": True}],
+        "config": {"top_n": 7, "rebalance_every": 14, "min_sharpe": 0.35},
+        "windows": [
+            {
+                "label": "W0",
+                "gate_pass": False,
+                "sharpe": 0.5,
+                "signal_return": 0.1,
+                "eq_return": 0.2,
+                "mom_return": 0.15,
+            },
+            {
+                "label": "W1",
+                "gate_pass": True,
+                "sharpe": 1.5,
+                "signal_return": 0.4,
+                "eq_return": 0.3,
+                "mom_return": 0.35,
+            },
+        ],
     }
     (learning / "backtest_latest.json").write_text(json.dumps(bt), encoding="utf-8")
     ps = load_promote_status(model_path=Path("nope"))
     assert ps.promote is True
     assert ps.top_n == 7
-    assert ps.windows_pass == "2/2"
+    assert ps.windows_pass == "1/2"
+    assert any("oos sh min/med" in n for n in ps.notes)
+    assert any("worst=W0" in n for n in ps.notes)

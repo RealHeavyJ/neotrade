@@ -153,6 +153,100 @@ class WindowResult:
         return asdict(self)
 
 
+def summarize_oos_windows(
+    windows: list[WindowResult] | list[dict[str, Any]],
+    *,
+    min_sharpe: float = 0.35,
+) -> dict[str, Any] | None:
+    """Aggregate multi-window OOS stats for learning / promote honesty.
+
+    Full-sample Sharpe can look excellent while one weak window fails the
+    stable gate. Use min/median/mean window Sharpe and pass rate to judge
+    whether the edge is consistent or concentrated in one regime.
+
+    Args:
+        windows: :class:`WindowResult` rows or dicts from ``backtest_latest``.
+        min_sharpe: Threshold for ``pct_sharpe_above`` (default gate floor).
+
+    Returns:
+        Stats dict, or ``None`` if no windows.
+    """
+    if not windows:
+        return None
+    rows: list[dict[str, Any]] = []
+    for w in windows:
+        if isinstance(w, WindowResult):
+            rows.append(w.to_dict())
+        elif isinstance(w, dict):
+            rows.append(w)
+    if not rows:
+        return None
+    sharpes = sorted(float(r.get("sharpe") or 0.0) for r in rows)
+    n = len(sharpes)
+    n_pass = sum(1 for r in rows if r.get("gate_pass"))
+    n_sh_ok = sum(1 for s in sharpes if s > float(min_sharpe))
+    mid = n // 2
+    if n % 2:
+        median = sharpes[mid]
+    else:
+        median = 0.5 * (sharpes[mid - 1] + sharpes[mid])
+    mean_sh = sum(sharpes) / n
+    # worst by sharpe
+    worst = min(rows, key=lambda r: float(r.get("sharpe") or 0.0))
+    best = max(rows, key=lambda r: float(r.get("sharpe") or 0.0))
+    w_sig = float(worst.get("signal_return") or 0.0)
+    w_eq = float(worst.get("eq_return") or 0.0)
+    w_mom = float(worst.get("mom_return") or 0.0)
+    return {
+        "n": n,
+        "n_pass": n_pass,
+        "pass_frac": n_pass / n,
+        "sharpe_min": sharpes[0],
+        "sharpe_median": median,
+        "sharpe_mean": mean_sh,
+        "sharpe_max": sharpes[-1],
+        "pct_sharpe_above_min": n_sh_ok / n,
+        "min_sharpe_threshold": float(min_sharpe),
+        "worst_label": str(worst.get("label") or "?"),
+        "worst_sharpe": float(worst.get("sharpe") or 0.0),
+        "worst_edge_vs_eq": w_sig - w_eq,
+        "worst_edge_vs_mom": w_sig - w_mom,
+        "best_label": str(best.get("label") or "?"),
+        "best_sharpe": float(best.get("sharpe") or 0.0),
+    }
+
+
+def format_oos_window_summary_lines(stats: dict[str, Any] | None) -> list[str]:
+    """Human-readable OOS window block for CLI / status."""
+    if not stats:
+        return []
+    n = int(stats["n"])
+    n_pass = int(stats["n_pass"])
+    lines = [
+        (
+            f"oos_windows: n={n} pass={n_pass}/{n} ({stats['pass_frac']:.0%}) "
+            f"sharpe min/med/mean/max="
+            f"{stats['sharpe_min']:.2f}/"
+            f"{stats['sharpe_median']:.2f}/"
+            f"{stats['sharpe_mean']:.2f}/"
+            f"{stats['sharpe_max']:.2f}"
+        ),
+        (
+            f"oos_windows: pct_sh>{stats['min_sharpe_threshold']:.2f}="
+            f"{stats['pct_sharpe_above_min']:.0%} "
+            f"worst={stats['worst_label']} sh={stats['worst_sharpe']:.2f} "
+            f"edge_eq={stats['worst_edge_vs_eq']:+.1%} "
+            f"edge_mom={stats['worst_edge_vs_mom']:+.1%} "
+            f"best={stats['best_label']} sh={stats['best_sharpe']:.2f}"
+        ),
+        (
+            "read: full-sample Sharpe can hide weak regimes — "
+            "trust stable_gate + worst-window edge, not headline Sharpe alone"
+        ),
+    ]
+    return lines
+
+
 @dataclass
 class BacktestReport:
     """Full backtest output for CLI / learning log / gates."""
@@ -205,6 +299,12 @@ class BacktestReport:
                     f"sig={w.signal_return:+.1%} eq={w.eq_return:+.1%} mom={w.mom_return:+.1%} "
                     f"dd={w.max_drawdown:.1%} sh={w.sharpe:.2f}"
                 )
+            min_sh = float(self.config.get("min_sharpe", 0.35) or 0.35)
+            lines.extend(
+                format_oos_window_summary_lines(
+                    summarize_oos_windows(self.windows, min_sharpe=min_sh)
+                )
+            )
         if self.stable_gate is not None:
             sg = "PASS" if self.stable_gate.pass_ else "FAIL"
             lines.append(f"stable_gate={sg}")
@@ -215,6 +315,8 @@ class BacktestReport:
         return lines
 
     def to_dict(self) -> dict[str, Any]:
+        min_sh = float(self.config.get("min_sharpe", 0.35) or 0.35)
+        oos = summarize_oos_windows(self.windows, min_sharpe=min_sh)
         return {
             "ts": self.ts,
             "config": self.config,
@@ -224,6 +326,7 @@ class BacktestReport:
             "gate": self.gate.to_dict(),
             "stable_gate": self.stable_gate.to_dict() if self.stable_gate else None,
             "windows": [w.to_dict() for w in self.windows],
+            "oos_window_stats": oos,
             "equity_curve": self.equity_curve,
             "notes": self.notes,
         }

@@ -174,6 +174,37 @@ def test_run_portfolio_backtest_smoke():
     assert any("signal:" in ln for ln in lines)
 
 
+def test_summarize_oos_windows_and_summary_lines():
+    from neotrade.signals.backtest import (
+        WindowResult,
+        format_oos_window_summary_lines,
+        summarize_oos_windows,
+    )
+
+    wins = [
+        WindowResult("W0", "a", "b", 0.08, 0.23, 0.05, 0.4, 0.47, False),
+        WindowResult("W1", "c", "d", 0.42, 0.38, 0.39, 0.11, 1.92, True),
+        WindowResult("W2", "e", "f", 0.78, 0.31, 0.44, 0.25, 1.93, True),
+    ]
+    stats = summarize_oos_windows(wins, min_sharpe=0.35)
+    assert stats is not None
+    assert stats["n"] == 3
+    assert stats["n_pass"] == 2
+    assert stats["sharpe_min"] == pytest.approx(0.47)
+    assert stats["sharpe_max"] == pytest.approx(1.93)
+    assert stats["worst_label"] == "W0"
+    assert stats["worst_edge_vs_eq"] == pytest.approx(0.08 - 0.23)
+    assert stats["pct_sharpe_above_min"] == pytest.approx(1.0)
+    lines = format_oos_window_summary_lines(stats)
+    assert any("oos_windows:" in ln for ln in lines)
+    assert any("worst=W0" in ln for ln in lines)
+    assert any("full-sample Sharpe" in ln for ln in lines)
+    # dict path (from JSON)
+    stats2 = summarize_oos_windows([w.to_dict() for w in wins])
+    assert stats2 is not None
+    assert stats2["n_pass"] == 2
+
+
 def default_risk_limits_safe(cfg: TickersConfig) -> RiskLimits:
     from neotrade.broker.risk import default_risk_limits
 

@@ -15,10 +15,15 @@ from neotrade.perf.bench import run_full_bench
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    """Promote gate + defaults + artifact freshness (research snapshot)."""
+    """Promote gate + model card + artifact freshness (research snapshot)."""
+    from neotrade.learning.model_card import load_model_card
+
     model = resolve_model_path(getattr(args, "model", None) or str(DEFAULT_MODEL_PATH))
     ps = load_promote_status(model_path=model)
     for line in ps.summary_lines():
+        print(line)
+    card = load_model_card(model_path=model)
+    for line in card.summary_lines():
         print(line)
     if ps.promote is True:
         return 0

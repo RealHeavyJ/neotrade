@@ -146,6 +146,23 @@ def load_promote_status(*, model_path: Path | None = None) -> PromoteStatus:
         if wins:
             n_ok = sum(1 for w in wins if w.get("gate_pass"))
             windows_pass = f"{n_ok}/{len(wins)}"
+            # Prefer saved stats; recompute from windows if older artifacts
+            oos = bt.get("oos_window_stats")
+            if not isinstance(oos, dict):
+                from neotrade.signals.backtest import summarize_oos_windows
+
+                min_sh = float((bt.get("config") or {}).get("min_sharpe", 0.35) or 0.35)
+                oos = summarize_oos_windows(wins, min_sharpe=min_sh)
+            if isinstance(oos, dict) and oos:
+                notes.append(
+                    f"oos sh min/med/mean/max="
+                    f"{float(oos.get('sharpe_min', 0)):.2f}/"
+                    f"{float(oos.get('sharpe_median', 0)):.2f}/"
+                    f"{float(oos.get('sharpe_mean', 0)):.2f}/"
+                    f"{float(oos.get('sharpe_max', 0)):.2f} "
+                    f"worst={oos.get('worst_label')} "
+                    f"edge_eq={float(oos.get('worst_edge_vs_eq', 0)):+.1%}"
+                )
         cfg = bt.get("config") or {}
         top_n = cfg.get("top_n")
         rebal = cfg.get("rebalance_every")

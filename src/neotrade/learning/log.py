@@ -57,11 +57,34 @@ def append_advice_feedback(
     )
 
 
-def append_retrain_event(*, metrics: dict, n_train: int, n_valid: int) -> Path:
-    return append_entry(
-        "retrain",
-        {"metrics": metrics, "n_train": n_train, "n_valid": n_valid},
-    )
+def append_retrain_event(
+    *,
+    metrics: dict,
+    n_train: int,
+    n_valid: int,
+    params: dict | None = None,
+    feature_names: list[str] | None = None,
+    exclude_groups: list[str] | tuple[str, ...] | None = None,
+    label_mode: str | None = None,
+    horizon: int | None = None,
+    rounds: int | None = None,
+) -> Path:
+    """Append retrain row; optional model-card fields for learning history."""
+    payload: dict = {"metrics": metrics, "n_train": n_train, "n_valid": n_valid}
+    if params is not None:
+        payload["params"] = params
+    if feature_names is not None:
+        payload["feature_names"] = list(feature_names)
+        payload["n_features"] = len(feature_names)
+    if exclude_groups is not None:
+        payload["exclude_groups"] = list(exclude_groups)
+    if label_mode is not None:
+        payload["label_mode"] = label_mode
+    if horizon is not None:
+        payload["horizon"] = horizon
+    if rounds is not None:
+        payload["rounds"] = rounds
+    return append_entry("retrain", payload)
 
 
 def load_recent(limit: int = 50) -> list[dict]:

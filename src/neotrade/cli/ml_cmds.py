@@ -42,6 +42,12 @@ def cmd_train(args: argparse.Namespace) -> int:
             metrics=result.metrics,
             n_train=result.n_train,
             n_valid=result.n_valid,
+            params=dict(model.params),
+            feature_names=list(model.feature_names),
+            exclude_groups=tuple(getattr(D, "FEATURE_EXCLUDE_GROUPS", ()) or ()),
+            label_mode=label_mode,
+            horizon=int(args.horizon),
+            rounds=int(args.rounds),
         )
     except OSError as exc:
         log.warning("retrain event log skipped: %s", exc)

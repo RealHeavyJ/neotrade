@@ -132,10 +132,11 @@ Core covered: time-ordered WF eval, portfolio WF BT, costs/slip + stress, multi-
 |----|------|------------------|----------|
 | H1 | **Embargo-lite** on eval folds (gap bars after train end) | After 2+ weeklies where promote flips on noise | P2 |
 | H2 | Full **purged/embargo CV** (López de Prado style) | Only if H1 insufficient / academic need | P3 |
-| H3 | BT **holdout strip** summary (last N months metrics called out) | Want clearer “recent OOS” without new gate | P2 |
+| H3 | BT **OOS window stats** (min/med/mean/max Sharpe, worst edge) | **Shipped 2026-08-10** — `summarize_oos_windows` on BT summary + status | done |
 | H4 | Default **`--require-both`** baselines | Exp only if promote too easy / overconfident | P3 |
 | H5 | **T8** era snapshot/diff (numbers) | Before paper reset or multi-era compare | P1 eng later |
 | H6 | Fill slip calib live | When fills **n≥20** | Ops |
+| H7 | **Model card** on status + retrain event params/features | **Shipped 2026-08-10** — read-only learning | done |
 
 **Never as “fix overfitting”:** more tickers, deeper trees, auto-tune, train on desk/Ollama prose, multi-open experiments.
 
@@ -143,13 +144,13 @@ Core covered: time-ordered WF eval, portfolio WF BT, costs/slip + stress, multi-
 - Rebuild v1 · live trading · train on advise · multi-open experiments  
 
 ## Status
-**2026-08-04 Mon — stay the course (ops + learning).** Score **10.0** · promote **PASS** 3/3 · research pack shipped.  
-**Default:** daily `DAILY_TODO` loop · no new eng unless H1–H5 triggered.  
+**2026-08-10 — H3 OOS window stats shipped.** Score **10.0** · promote currently **FAIL** 2/3 (ops).  
+**Default:** weekly refresh + read `oos_windows` block · Mon daily loop.  
 ```
-neotrade status && neotrade session && neotrade quotes && neotrade account
-neotrade signals && neotrade paper-plan && neotrade desk
-# RTH + intentional only: paper-execute --confirm
+neotrade backtest   # see oos_windows min/med/mean/max + worst=
+neotrade status     # note: oos sh min/med/...
+neotrade weekly     # when ages stale
 ```
-**Later eng:** T8 (H5) first · H1 embargo-lite · T7 when log pain.
+**Later eng:** T8 (H5) · H1 embargo-lite · T7 when log pain.
 
-Last updated: 2026-08-04
+Last updated: 2026-08-10
