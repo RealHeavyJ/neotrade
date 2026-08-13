@@ -3,9 +3,9 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-08-11 (Mon) EOD — equity **$104,131.74**  
+**Last ops review:** 2026-08-12 (Tue) EOD — equity **$104,398.32**  
 **Model gate:** bare BT **PASS** · sig **+194.5%** · top_n=7 rebal=14 · regime OFF · no vol group  
-**Next RTH:** 2026-08-12 09:30 ET  
+**Next RTH:** 2026-08-13 09:30 ET  
 **Day loop:** status → desk → intentional execute OK if RTH + plan  
 **Do not:** multi-open exps · stack more feature drops without one exp
 
@@ -137,6 +137,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-08-06 EOD | **101,061** | 1,279 | 7 | 0 | equity=$101,061.46 · cash=$1,279.15 · bp=$284,507.07 · NVDA/AVGO/ETN lead · PLTR lag |
 | 2026-08-10 EOD | **104,227** | 1,197 | 7 | 0 | equity=$104,227.37 · cash=$1,196.69 · bp=$293,272.66 · AVGO/NVDA/ETN/PLTR/CRWD lead · JPM flat |
 | 2026-08-11 EOD | **104,132** | 1,196 | 7 | 0 | equity=$104,131.74 · cash=$1,196.36 · bp=$293,004.50 · ETN/NVDA/AVGO/PLTR lead · JPM flat |
+| 2026-08-12 EOD | **104,398** | 1,196 | 7 | 0 | equity=$104,398.32 · cash=$1,196.36 · bp=$293,750.93 · NVDA/ETN/AVGO lead · NOW flat |
 
 ### Weekly model check — 2026-07-25
 
@@ -401,6 +402,31 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | NVDA | 69 | $15,053.73 | 218.17 | +$1,543.51 |
 | PLTR | 90 | $15,561.90 | 172.91 | +$1,068.42 |
 
+### EOD — 2026-08-12 (Tue)
+
+| Field | Value |
+|-------|--------|
+| equity | **$104,398.32** |
+| cash | **$1,196.36** |
+| buying_power | **$293,750.93** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| status | ACTIVE |
+| names | AVGO CRWD ETN JPM NOW NVDA PLTR |
+| uPL leaders | NVDA +$1,977 · ETN +$1,858 · AVGO +$1,435 · PLTR +$857 · CRWD +$584 · JPM +$233 |
+| uPL laggards | NOW −$25 flat |
+| note | vs 8/11 EOD: equity **+$266.58** · cash flat · same 7 names |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AVGO | 36 | $15,020.64 | 417.24 | +$1,434.96 |
+| CRWD | 68 | $15,089.20 | 221.90 | +$584.12 |
+| ETN | 31 | $14,258.76 | 459.96 | +$1,857.83 |
+| JPM | 39 | $14,258.01 | 365.59 | +$232.83 |
+| NOW | 110 | $13,737.90 | 124.89 | −$25.30 |
+| NVDA | 69 | $15,487.05 | 224.45 | +$1,976.83 |
+| PLTR | 90 | $15,350.40 | 170.56 | +$856.92 |
+
 ---
 
 ## Copy-paste
@@ -424,4 +450,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-08-11 EOD (equity $104,131.74 · cash $1,196.36 · bp $293,004.50 · 7 pos)
+Last updated: 2026-08-12 EOD (equity $104,398.32 · cash $1,196.36 · bp $293,750.93 · 7 pos)
