@@ -100,5 +100,15 @@ State in one short block:
 | `CONTEXT.md` | Locked decisions |
 | `PROGRESS.md` | Restart checkpoint |
 | `DAILY_TODO.md` | Human ops only |
+| `docs/OPERATOR_SKILL.md` | Human operator stage/score + teach queue (persist across sessions) |
 
-Last updated: 2026-07-20
+## Human operator teaching
+
+When the user asks about learning stage, scoring, ML/trading literacy, or walkthroughs:
+
+1. Read **`docs/OPERATOR_SKILL.md`** first.  
+2. Teach the **Next default lesson** unless they override.  
+3. After meaningful progress, update that file (scores, glossary, score log, next lesson) — honest promote gates, no flattery.  
+4. Do not confuse operator skill with eng `QUALITY_SCORE` or paper equity.
+
+Last updated: 2026-08-22

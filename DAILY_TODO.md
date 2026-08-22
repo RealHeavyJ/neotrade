@@ -115,6 +115,7 @@ source .venv/bin/activate    # must source, not execute
 | Ollama + llama3.2:3b | OK when service up |
 | `.env` paper + data | OK |
 | Tests | **94 passed** |
+| Operator skill track | `docs/OPERATOR_SKILL.md` (stage/score; agents update) |
 
 ---
 
