@@ -3,10 +3,10 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-08-19 (Tue) EOD — equity **$103,304.82**  
-**Model gate:** bare BT **PASS** · sig **+194.5%** · top_n=7 rebal=14 · regime OFF · no vol group  
-**Next RTH:** 2026-08-20 09:30 ET  
-**Day loop:** status → desk → intentional execute OK if RTH + plan  
+**Last ops review:** 2026-08-24 (Mon) EOD — equity **$101,308.09**  
+**Model gate:** bare BT full PASS · stable/promote **FAIL** (2026-08-22; W1 lost to eq/mom) · top_n=7 rebal=14  
+**Next RTH:** 2026-08-25 09:30 ET  
+**Day loop:** status → desk → intentional execute OK if RTH + plan (~14d rebalance; desk≠auto-trade)  
 **Do not:** multi-open exps · stack more feature drops without one exp
 
 ---
@@ -141,6 +141,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-08-12 EOD | **104,398** | 1,196 | 7 | 0 | equity=$104,398.32 · cash=$1,196.36 · bp=$293,750.93 · NVDA/ETN/AVGO lead · NOW flat |
 | 2026-08-13 EOD | **105,350** | 1,196 | 7 | 0 | equity=$105,350.31 · cash=$1,196.36 · bp=$296,416.50 · NVDA/ETN/PLTR lead |
 | 2026-08-19 EOD | **103,305** | 1,097 | 7 | 0 | equity=$103,304.82 · cash=$1,097.31 · bp=$290,570.27 · NVDA/MRVL/PLTR lead · CEG lag |
+| 2026-08-24 EOD | **101,308** | 1,097 | 7 | 0 | equity=$101,308.09 · cash=$1,097.31 · bp=$284,979.42 · PLTR/NVDA/MRVL lead · MU/CEG lag |
 
 ### Weekly model check — 2026-07-25
 
@@ -479,6 +480,31 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | NVDA | 69 | $15,111.00 | 219.00 | +$1,600.78 |
 | PLTR | 90 | $15,732.00 | 174.80 | +$1,238.52 |
 
+### EOD — 2026-08-24 (Mon)
+
+| Field | Value |
+|-------|--------|
+| equity | **$101,308.09** |
+| cash | **$1,097.31** |
+| buying_power | **$284,979.42** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| status | ACTIVE · paper endpoint ok |
+| names | CEG ETN MRVL MU NOW NVDA PLTR |
+| uPL leaders | PLTR +$1,362 · NVDA +$971 · MRVL +$886 · ETN +$293 · NOW +$259 |
+| uPL laggards | MU −$612 · CEG −$547 |
+| note | vs 8/19 EOD: equity **−$1,996.73** · cash flat · same 7 names |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| CEG | 51 | $13,969.92 | 273.92 | −$546.50 |
+| ETN | 31 | $12,693.88 | 409.48 | +$292.95 |
+| MRVL | 66 | $15,391.20 | 233.20 | +$886.38 |
+| MU | 15 | $13,797.75 | 919.85 | −$612.30 |
+| NOW | 110 | $14,021.70 | 127.47 | +$258.50 |
+| NVDA | 69 | $14,481.03 | 209.87 | +$970.81 |
+| PLTR | 90 | $15,855.30 | 176.17 | +$1,361.82 |
+
 ---
 
 ## Copy-paste
@@ -502,4 +528,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-08-19 EOD (equity $103,304.82 · cash $1,097.31 · bp $290,570.27 · 7 pos)
+Last updated: 2026-08-24 EOD (equity $101,308.09 · cash $1,097.31 · bp $284,979.42 · 7 pos)
