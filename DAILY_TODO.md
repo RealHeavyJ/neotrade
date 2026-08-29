@@ -3,9 +3,9 @@
 Until agents can run unattended 24/7, **you** run these loops.  
 Paper only. Advise ≠ train. Execute only with `--confirm` when plan is intentional.
 
-**Last ops review:** 2026-08-27 (Thu) EOD — equity **$102,894.47**  
+**Last ops review:** 2026-08-28 (Fri) EOD — equity **$101,229.01**  
 **Model gate:** bare BT full PASS · stable/promote **FAIL** (2026-08-22; W1 lost to eq/mom) · top_n=7 rebal=14  
-**Next RTH:** 2026-08-28 09:30 ET  
+**Next RTH:** 2026-08-31 09:30 ET  
 **Day loop:** status → desk → intentional execute OK if RTH + plan (~14d rebalance; desk≠auto-trade)  
 **Do not:** multi-open exps · stack more feature drops without one exp
 
@@ -143,6 +143,7 @@ source .venv/bin/activate    # must source, not execute
 | 2026-08-19 EOD | **103,305** | 1,097 | 7 | 0 | equity=$103,304.82 · cash=$1,097.31 · bp=$290,570.27 · NVDA/MRVL/PLTR lead · CEG lag |
 | 2026-08-24 EOD | **101,308** | 1,097 | 7 | 0 | equity=$101,308.09 · cash=$1,097.31 · bp=$284,979.42 · PLTR/NVDA/MRVL lead · MU/CEG lag |
 | 2026-08-27 EOD | **102,894** | 1,364 | 7 | 0 | equity=$102,894.47 · cash=$1,364.18 · bp=$289,741.53 · PLTR/NVDA lead · MU/AMD lag |
+| 2026-08-28 EOD | **101,229** | 1,364 | 7 | 0 | equity=$101,229.01 · cash=$1,364.18 · bp=$285,078.23 · PLTR/NVDA lead · AMD/MU/MRVL lag |
 
 ### Weekly model check — 2026-07-25
 
@@ -531,6 +532,31 @@ equity≈$98,909 · cash≈$20,208 · 10 pos · 0 open · ACTIVE · weekend (exe
 | PLTR | 90 | $16,643.70 | 184.93 | +$2,150.22 |
 | TSM | 32 | $13,616.00 | 425.50 | +$278.94 |
 
+### EOD — 2026-08-28 (Fri)
+
+| Field | Value |
+|-------|--------|
+| equity | **$101,229.01** |
+| cash | **$1,364.18** |
+| buying_power | **$285,078.23** |
+| positions | **7** · open_orders **0** |
+| blocked / PDT | False / False |
+| status | ACTIVE · paper endpoint ok |
+| names | AMD ETN MRVL MU NVDA PLTR TSM |
+| uPL leaders | PLTR +$2,202 · NVDA +$1,524 · ETN +$108 · TSM +$66 |
+| uPL laggards | AMD −$503 · MU −$448 · MRVL −$223 |
+| note | vs 8/27 EOD: equity **−$1,665.46** · cash flat · same 7 names |
+
+| Symbol | qty | mv | px | uPL |
+|--------|-----|-----|-----|-----|
+| AMD | 30 | $13,981.27 | 466.04 | −$503.03 |
+| ETN | 31 | $12,508.50 | 403.50 | +$107.57 |
+| MRVL | 66 | $14,281.46 | 216.39 | −$223.36 |
+| MU | 15 | $13,962.00 | 930.80 | −$448.05 |
+| NVDA | 69 | $15,033.72 | 217.88 | +$1,523.50 |
+| PLTR | 90 | $16,695.00 | 185.50 | +$2,201.52 |
+| TSM | 32 | $13,402.88 | 418.84 | +$65.82 |
+
 ---
 
 ## Copy-paste
@@ -554,4 +580,4 @@ neotrade desk
 neotrade bench && pytest -q && ./scripts/ci_local.sh
 ```
 
-Last updated: 2026-08-27 EOD (equity $102,894.47 · cash $1,364.18 · bp $289,741.53 · 7 pos)
+Last updated: 2026-08-28 EOD (equity $101,229.01 · cash $1,364.18 · bp $285,078.23 · 7 pos)
