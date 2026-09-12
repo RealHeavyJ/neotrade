@@ -1,10 +1,6 @@
 # Backup, migrate, and scale (operator guide)
 
-**Goals this supports:** learn · keep the loop alive · honest promote · paper edge —  
-**not** “buy a bigger GPU and alpha appears.”
-
-Related: `README.md` (short pointer) · `DAILY_TODO.md` (ops) · `docs/OPERATOR_SKILL.md` (your skill track) ·  
-`docs/user-guide.md` · `AGENTS.md` (no live trading; advise ≠ train).
+Related: `README.md` · `DAILY_TODO.md` · `docs/OPERATOR_SKILL.md` · `docs/user-guide.md` · `AGENTS.md`.
 
 ---
 
@@ -66,7 +62,7 @@ A clean `git status` after train/backtest is **normal** — those paths are giti
 | Monthly (habit) | Even if no promote change — cheap insurance |
 | After changing `.env` | Update secrets vault only (not git) |
 
-**Do not** back up only because equity had a green day. Back up **artifacts + gates**, not paper P&amp;L mood.
+Priority backups: **artifacts + gate JSON** after promote changes; paper equity snapshots are optional ops logs (`DAILY_TODO`).
 
 ---
 
@@ -197,17 +193,16 @@ Same steps as 6.1. Then optionally:
 
 ---
 
-## 7. Scaling compute: honesty first
+## 7. Scaling compute
 
-### 7.1 Project north star (unchanged on a 64GB box)
+### 7.1 Invariants (any hardware)
 
-1. **Honest edge** — bare `backtest` + multi-window stable gate.  
-2. **Paper discipline** — RTH, `--confirm`, desk ≠ execute.  
-3. **Advise never trains LightGBM.**  
-4. **One open experiment** at a time.  
-5. **More compute is a tool**, not a promote bypass.
+1. Promote = bare `backtest` full gate ∧ stable multi-window gate.  
+2. Execute = RTH + `--confirm`; desk/advise never place orders.  
+3. Advise/desk logs are journal-only — not LightGBM labels/features.  
+4. One open experiment row at a time (`neotrade experiment`).  
 
-If stable_gate FAIL on Neo, the same code on a workstation will usually still FAIL until the **strategy/data** story changes.
+Same code + data on a faster machine reproduces the same gates; hardware changes runtime, not the metric definitions.
 
 ### 7.2 LightGBM — where extra compute helps
 
@@ -219,114 +214,107 @@ If stable_gate FAIL on Neo, the same code on a workstation will usually still FA
 | More tickers in universe | Richer CS ranks | More noise, more data, more ops load |
 | Feature research + `eval --ablate` | Find useful groups | Already dropped `vol` for a reason |
 | Hyperparam search (grid/random) | Possible small gains | Easy to **overfit** windows; require stable_gate PASS to keep |
-| GPU for LightGBM | Rarely the bottleneck here | Prefer CPU + better protocol |
+| GPU for LightGBM | Optional; often not the bottleneck vs panel build + BT loop | Measure before depending on it |
 
-**Accuracy/profit levers that beat “bigger machine” for this stack:**
+**Primary model/portfolio levers (hardware-independent):**
 
-- Label definition (relative vs absolute) + **horizon** aligned with hold/rebalance  
-- Features with **no leakage**  
-- Portfolio rules: `top_n`, `rebalance_every`, costs/slip  
-- Multi-window honesty (fix worst window, don’t chase full-sample ret)  
-- Fill calibration when `n≥20`  
-- Fresh data (`fetch`) before weekly train  
+- Label mode + horizon vs rebalance cadence  
+- Feature set / leakage controls / `eval --ablate`  
+- `top_n`, `rebalance_every`, cost_bps, slip (incl. fill calib n≥20)  
+- Stable-window criteria and worst-window edges  
+- Data freshness (`fetch`) before train/BT  
 
-### 7.3 Ollama / agents — where extra compute helps
+### 7.3 Ollama / agents
 
-| Lever | Effect | Risk / note |
-|-------|--------|-------------|
-| Larger local model (e.g. 7B–8B if RAM allows) | Better desk prose | Still **opinion only**; no promote |
-| More context / longer desk packets | Richer critique | RAM/latency on 8GB is tight — 3B is intentional on Neo |
-| Cloud LLM | Not default; project prefers local | Policy + privacy; don’t feed keys |
-| More agents / longer chains | Diminishing returns | Busywork; critic already slows bad trades |
+| Lever | Effect | Constraint |
+|-------|--------|------------|
+| Larger local weights (7B–8B+) | Desk/advise quality & latency | RAM; still non-executing |
+| Longer packets / more tools | More context to agents | 8GB Neo: 3B default is deliberate |
+| Cloud LLM | Out of default architecture | Local-first policy; no keys in prompts |
+| Extra agent roles | More prose paths | No effect on `signal.txt` |
 
-**Agents do not make LightGBM more accurate.** Rate advise for *your* learning; never pipe ratings into `train`.
+Ratings on advise are UX/journal metadata only.
 
-### 7.4 Suggested use of a bigger machine (research plan)
-
-Stay on Neo for **daily paper ops** if you want; use the big box for **batch research**:
+### 7.4 Workstation research loop
 
 ```text
-1. Restore same git SHA + promoted model as baseline
-2. neotrade status  # baseline promote
-3. ONE experiment (e.g. horizon or rebalance_every) via experiment ledger
+1. Same git SHA + restored promoted artifacts as baseline
+2. neotrade status
+3. One experiment ledger row (single knob)
 4. train → eval → bare backtest
-5. keep only if stable_gate PASS and you understand window table
-6. copy winning models/ + backtest_latest.json back to Neo via secure tarball
-7. neotrade experiment complete
+5. Keep iff stable_gate PASS; archive models/ + backtest_latest.json
+6. neotrade experiment complete
+7. Sync tarball back to daily driver if needed
 ```
 
-### 7.5 What not to do with more power
+### 7.5 Non-goals / hard limits
 
-- Train for hours with huge `rounds` while early stopping at tree 10  
-- “Optimize” until one window looks good (curve-fit)  
-- Auto-execute from desk because the LLM sounds confident  
-- Live trading  
-- Commit models/secrets “so CI has them”  
+- `num_boost_round` ≫ `best_iteration` → no extra trees used  
+- Single-window cherry-picks ≠ promote  
+- Desk output ≠ order routing  
+- Live trading disabled by design  
+- `models/`, `data/`, `.env` stay out of git
 
 ---
 
-## 8. Learning track — what to study so models get better (you + system)
+## 8. Research surface (model + book)
 
-You don’t need a PhD. You need a **repeatable honesty loop**.
+### 8.1 Concept map → metrics
 
-### 8.1 Skills to build (see also `docs/OPERATOR_SKILL.md`)
+| Concept | Primary commands / fields |
+|---------|---------------------------|
+| Features / labels / horizon | `train`, meta, `eval` |
+| Classification vs portfolio | `eval` vs `backtest` / promote |
+| Full vs stable gate | `backtest_latest.json` `gate` / `stable_gate` |
+| Baselines | `equal_weight`, `momentum` edges |
+| Retrain vs rebalance vs fill | BT config: `retrain_every`, `rebalance_every`, `fill` |
+| Friction | `cost_bps`, `slip_bps`, `fills` |
+| Experiment ledger | `neotrade experiment` |
 
-| Topic | Why it affects P&amp;L |
-|-------|----------------------|
-| Features vs labels vs horizon | Wrong question → wrong model |
-| Train vs eval vs backtest | Promote is portfolio truth, not train accuracy |
-| Full gate vs stable gate | Stops lucky full-sample stories |
-| Baselines (eq / mom) | “Up 100%” is meaningless if mom did 120% |
-| Rebalance vs retrain clocks | Avoid daily churn |
-| Costs / slip / bps | Edge dies to friction |
-| Experiment discipline | One change → measure → keep/revert |
+### 8.2 Weekly pipeline
 
-### 8.2 Weekly research ritual (profitable process)
+1. `neotrade weekly` (or fetch → train → eval → backtest)  
+2. `neotrade status`  
+3. Inspect per-window edges + worst window  
+4. On FAIL: one hypothesis → one ledger experiment  
+5. On PASS: artifact tarball (§4)  
+6. Paper rebalance on operator policy (~BT `rebalance_every`), not per desk line  
 
-1. `neotrade weekly` (or fetch → train → eval → backtest).  
-2. `neotrade status` — promote PASS/FAIL + ages.  
-3. Read **worst window** edges, not only headline return.  
-4. If FAIL: one hypothesis (write it down) — e.g. “W1 loses because ranks chase late momentum.”  
-5. One experiment only → complete/abandon.  
-6. Backup tarball if PASS.  
-7. Paper: calendar rebalance (~14d), not daily desk clicks.
+### 8.3 Work queue (typical ROI order)
 
-### 8.3 Tasks that improve accuracy (ordered by typical ROI)
+| Pri | Work | Interface |
+|-----|------|-----------|
+| P0 | Data refresh | `neotrade fetch --force` |
+| P0 | Promote path | bare `neotrade backtest` |
+| P0 | Window diagnostics | BT output / JSON |
+| P1 | Feature groups | `neotrade eval --ablate` |
+| P1 | WF classification | `neotrade eval` |
+| P1 | Slip calib | `fills` → `--apply` (n≥20) |
+| P2 | Horizon ↔ rebalance | experiment + BT |
+| P2 | `top_n` / `rebalance_every` | defaults + ledger |
+| P3 | Tree capacity (leaves, lr, depth) | when train/valid disagree with OOS |
+| P3 | LLM size | desk only |
+| Later | Universe expansion | tickers + CS features |
 
-| Priority | Task | Command / artifact |
-|----------|------|--------------------|
-| P0 | Fresh data | `neotrade fetch --force` |
-| P0 | Honest promote path | bare `neotrade backtest` (no `--fast`) |
-| P0 | Understand FAIL windows | BT printout + desk |
-| P1 | Feature ablation | `neotrade eval --ablate` |
-| P1 | Walk-forward ML grade | `neotrade eval` |
-| P1 | Slip closer to reality | `neotrade fills` → `--apply` at n≥20 |
-| P2 | Horizon ↔ rebalance alignment | experiment + BT |
-| P2 | top_n / rebalance_every | one knob; ledger |
-| P3 | Hyperparams (leaves, lr, depth) | only if overfit evidence |
-| P3 | Larger LLM | desk quality only |
-| Later | More universe names | data + CS design |
+### 8.4 Objective split
 
-### 8.4 Fast vs accurate vs profitable
+| Objective | Measured by |
+|-----------|-------------|
+| Throughput | train/BT wall time; cache hit rate; avoid `--fast` for promote |
+| Predictive grade | `eval` edges, Brier/calibration, ablation deltas |
+| Book grade | BT signal vs eq/mom, maxDD, Sharpe, stable_gate |
 
-| Goal | Means |
-|------|--------|
-| **Fast** | Cache bars; don’t refetch every hour; early stopping; Neo-sized LLM; `--fast` **only** for smoke |
-| **Accurate** (ML sense) | eval edges, calibration, no leakage, stable windows |
-| **Profitable** (paper sense) | beat eq/mom after costs across windows + sane ops (low churn, RTH, intentional execute) |
+Classification edge can be weak while ranked book still passes (or the reverse). Promote keys off **book + windows**.
 
-A model can be “accurate” at 52% direction and still lose to momentum on the book.  
-A book can be profitable in one year and **FAIL promote** on stability — trust the gate.
+### 8.5 Open questions (repo history)
 
-### 8.5 Open research questions (for you to explore)
+- Window failures vs mom/eq: regime filter, features, or turnover?  
+- Horizon 5 vs empirical winner half-life in universe  
+- Post n≥20 slip calib → gate sensitivity  
+- Cash drag vs plan/risk sleeves  
+- Desk text vs subsequent plan quality (journal only)
 
-- Why did W1-style periods lose to eq/mom — regime, feature set, or top_n churn?  
-- Does horizon 5 still match how long winners persist in the universe?  
-- After 20+ real paper fills, does calibrated slip change promote?  
-- Is cash drag intentional or stuck plan?  
-- Are desk recommendations correlated with good plan days — or noise? (journal ratings)
-
-Use `docs/IMPROVEMENT_QUESTIONS.md` in weekly reviews.
+See `docs/IMPROVEMENT_QUESTIONS.md`.
 
 ---
 
@@ -338,9 +326,9 @@ Use `docs/IMPROVEMENT_QUESTIONS.md` in weekly reviews.
 | Save secrets | Password manager only |
 | New PC same power | git clone → venv → `.env` → extract tarball → status |
 | New PC more power | Same restore → use extra CPU for **one-at-a-time** BT/eval research |
-| Make model “smarter” with GPU | Usually wrong lever; fix labels/features/gates first |
-| Make agents smarter | Optional larger Ollama; still no train-on-advise |
-| Trade the new promote | `signals` → `paper-plan` → rare RTH `--confirm` per your policy |
+| GPU / bigger box | Faster iteration; re-run gates on same protocol |
+| Larger local LLM | Desk/advise only |
+| Act on promote | `signals` → `paper-plan` → RTH `paper-execute --confirm` per policy |
 
 ---
 

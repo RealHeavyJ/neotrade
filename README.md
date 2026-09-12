@@ -145,19 +145,17 @@ tar -czf ~/Backups/neotrade/neotrade-artifacts-$STAMP.tgz \
 
 Missing `data/cache/` → `neotrade fetch`. You do **not** need a bigger box to “turn on” a promoted model (the file is tiny).
 
-### More compute: what actually helps
+### More compute (technical constraints)
 
-| More power helps | Does **not** auto-fix |
-|------------------|-------------------------|
-| Faster `train` / `eval` / `backtest` loops | stable_gate FAIL / weak labels |
-| Larger **local** LLM for desk prose (if RAM allows) | LightGBM accuracy (advise ≠ train) |
-| Heavier one-knob experiments on a workstation | Daily paper discipline on Neo |
+| Extra resources typically improve | Unchanged by hardware alone |
+|----------------------------------|-----------------------------|
+| Wall-clock for `train` / `eval` / `backtest` | Gate logic, labels, costs, universe |
+| Feasible local LLM size (RAM) | LightGBM fit quality (advise ≠ train) |
+| Parallel research throughput | Need for bare multi-window BT to promote |
 
-**LightGBM:** usually CPU-bound; extra `rounds` often useless if `best_iteration` is already small (early stopping). Prefer better **data, horizon/labels, features, portfolio rules, costs** + bare multi-window BT.  
-**Ollama agents:** optional larger model = better narrative only — still no execute, still no training on prose.  
-**Profit path:** beat eq/mom **after costs across windows** + intentional RTH rebalance — not GPU theater.
-
-Learning-oriented backlog, ROI order, and research ritual: **`docs/BACKUP_MIGRATE_SCALE.md`** §7–8. Operator literacy: **`docs/OPERATOR_SKILL.md`**.
+**LightGBM:** CPU-bound in this stack; `num_boost_round` is a cap — fitted trees = `best_iteration` under early stopping.  
+**Ollama:** larger local weights → desk latency/quality only; no path into `train`.  
+**Promote/P&amp;L drivers:** features, horizon/labels, `top_n` / rebalance, slip/costs, stable windows — see **`docs/BACKUP_MIGRATE_SCALE.md`** §7–8.
 
 ### Architecture (v1)
 

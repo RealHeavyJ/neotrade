@@ -1,7 +1,7 @@
 # neotrade Project Goals
 
 ## Core Vision
-Build a compact, efficient, well-documented Python project that demonstrates the local AI capabilities of the Apple MacBook Neo (A18 Pro, 8GB unified memory).
+Build a compact, efficient, well-documented Python project that demonstrates the local AI capabilities of the Apple MacBook Neo (A18 Pro, 8GB unified memory) — and **pushes** signal/book/ops performance under honest gates.
 
 Interactive market-hours paper-trading decision-support system using:
 - Lightweight ML model (LightGBM) for signals on a configurable list of ~20 stocks.
@@ -9,6 +9,10 @@ Interactive market-hours paper-trading decision-support system using:
 - Profit-focused + diversification-aware logic oriented toward longer-term growth.
 - Streamlit interactive dashboard + chat during US market hours.
 - Fully local/privacy-first on the Neo (Ollama/MLX + small models).
+
+## Operating mindset
+**Aggressive + sensible.** Explore like researchers; mitigate explicitly; fail fast; learn fast; agile single-track execution. Regressions expected and owned; progress measured by eval/BT promote and paper ops — not speeches.  
+Locked detail: `CONTEXT.md` → Operating mindset. Agent tone: `AGENTS.md`.
 
 ## Key Constraints (Current)
 - Local-only for the running trading system.
@@ -29,4 +33,4 @@ Interactive market-hours paper-trading decision-support system using:
 - Hybrid mode (desktop heavy lifting + Neo orchestration).
 - Potential use of larger Grok models for complex planning/coding tasks while keeping runtime local.
 
-Last updated: 2026-07-15
+Last updated: 2026-09-12

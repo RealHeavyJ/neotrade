@@ -16,8 +16,8 @@ One sentence: what they asked for.
 | Fits **Neo 8GB local** + paper-only? | yes / no |
 | Risk of **busywork** or score theater? | low / med / high |
 
-### 3. What you may be missing
-3–7 bullets: risks, confounds, simpler path, trading/ML traps, ops cost.
+### 3. Risks and mitigations
+3–7 bullets: each **risk → mitigation** (or “stop”). Confounds, simpler path, trading/ML traps, ops cost. Explorer bias: prefer try-with-rails over indefinite delay.
 
 ### 4. Alternatives
 - **Do nothing / wait** if …

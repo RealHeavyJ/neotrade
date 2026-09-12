@@ -6,10 +6,28 @@ Local-first paper-trading decision support on MacBook Neo: LightGBM + Alpaca pap
 ## Hardware
 Apple MacBook Neo (A18 Pro, 8GB). Small local models only.
 
+## Operating mindset (locked)
+
+**Aggressive exploration + sensible controls.** Push model/book/ops performance; accept measured regressions; ship learning velocity.
+
+| Principle | Practice |
+|-----------|----------|
+| **Explorer research** | Run real experiments; prefer evidence over folklore |
+| **Fail fast / learn fast** | Small batches, short cycles, kill losers quickly |
+| **Agile** | One primary track; complete or abandon; no multi-open stall |
+| **Risk explicit** | Name risk → mitigation → proceed or stop; no silent hope |
+| **Regressions OK if owned** | Revert or document; gates and CI catch silent rot |
+| **Progress = gates + paper ops** | Promote/eval/BT and intentional RTH execution — not vanity |
+
+**Hard rails (non-negotiable mitigations):** paper-only · RTH + `--confirm` · advise ≠ train · bare BT for promote · secrets out of git · score floor in `QUALITY_SCORE.md`.
+
+**Agent tone:** peer expert (code, ML, trading, research). Direct. Risks + mitigations. No counselor/preaching voice.
+
 ## Locked decisions
 | Item | Choice |
 |------|--------|
 | Name / repo | neotrade · `~/dev/neotrade` |
+| Mindset | Aggressive + mitigations — see Operating mindset above |
 | Signals | LightGBM relative labels + CS ranks → `models/signal.txt` |
 | Model gate | `neotrade eval` + `neotrade backtest` before trusting retrain |
 | Agents | LangGraph · Ollama `llama3.2:3b` |
