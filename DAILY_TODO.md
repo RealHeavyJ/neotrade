@@ -116,6 +116,7 @@ source .venv/bin/activate    # must source, not execute
 | `.env` paper + data | OK |
 | Tests | **94 passed** |
 | Operator skill track | `docs/OPERATOR_SKILL.md` (stage/score; agents update) |
+| Backup / migrate / scale | `docs/BACKUP_MIGRATE_SCALE.md` — after promote PASS, tarball model+learning; secrets in vault only |
 
 ---
 

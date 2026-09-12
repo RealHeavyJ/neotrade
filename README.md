@@ -81,9 +81,83 @@ Local-only runtime; paper trading via Alpaca paper API; agents via Ollama.
 
 Daily checklist: `DAILY_TODO.md`  
 User guide: `docs/user-guide.md`  
+**Backup / migrate / scale:** `docs/BACKUP_MIGRATE_SCALE.md` (models, secrets, new machines, compute ROI)  
 Improvement questions: `docs/IMPROVEMENT_QUESTIONS.md`  
+Operator skill track: `docs/OPERATOR_SKILL.md`  
 Dev memory: `PROGRESS.md` · `TASKS.md` · `CONTEXT.md`  
 **Agents:** `AGENTS.md` · `QUALITY_SCORE.md` (floor 7.6) · desk = smarter process, not auto-trade
+
+## Backup, migrate, and scale (start here)
+
+**Full detail:** [`docs/BACKUP_MIGRATE_SCALE.md`](docs/BACKUP_MIGRATE_SCALE.md).
+
+### What git does *not* store
+
+| On disk | Git? | Why |
+|---------|------|-----|
+| `models/signal.txt` (+ `.meta.json`) | **No** (`models/`) | Runtime booster; changes every train |
+| `data/learning/*` (e.g. `backtest_latest.json`) | **No** (`/data/`) | Promote proof + journals |
+| `data/cache/` | **No** | OHLCV; rebuild with `fetch` |
+| `.env` | **No** | Secrets |
+
+So after `train` / `backtest`, **`promote=PASS` can be real while `git status` is clean.** That is expected.
+
+### When to back up
+
+- After **weekly promote PASS** (`neotrade status` → promote=PASS, fresh ages)  
+- Before OS wipe, travel, or hardware move  
+- Before risky experiments that overwrite `models/signal.txt`  
+- Monthly habit; **not** because paper equity had a green day  
+
+### How (artifacts local; secrets separate)
+
+```bash
+cd ~/dev/neotrade && source .venv/bin/activate
+neotrade status   # note promote + ages
+
+STAMP=$(date -u +%Y%m%dT%H%MZ)
+mkdir -p ~/Backups/neotrade
+
+# After promote PASS — minimum
+tar -czf ~/Backups/neotrade/neotrade-model-$STAMP.tgz \
+  models/signal.txt models/signal.txt.meta.json \
+  data/learning/backtest_latest.json
+
+# Optional fuller (includes cache — rebuildable)
+tar -czf ~/Backups/neotrade/neotrade-artifacts-$STAMP.tgz \
+  models data/learning data/cache
+```
+
+- Keep tarballs on **your** SSD / encrypted disk / **private** cloud folder.  
+- **`.env`:** password manager or encrypted file only — **never** git, never the same unencrypted USB you lend out, never paste keys into chat.  
+- Paper API keys only. This project is **paper-only**.
+
+### Migrate to another computer
+
+| Step | Equivalent machine (e.g. another 8GB Neo) | More CPU/RAM/GPU |
+|------|-------------------------------------------|------------------|
+| 1 | `git clone` private remote | same |
+| 2 | `python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && pytest -q` | same |
+| 3 | Recreate `.env` from vault (paper keys) | same |
+| 4 | Extract model/learning tarball into repo root | same |
+| 5 | Ollama + `ollama pull llama3.2:3b` if you use desk/advise | optional larger local model if RAM allows |
+| 6 | `neotrade status && neotrade account && neotrade signals` | same smoke; then use extra power for **research**, not auto-trade |
+
+Missing `data/cache/` → `neotrade fetch`. You do **not** need a bigger box to “turn on” a promoted model (the file is tiny).
+
+### More compute: what actually helps
+
+| More power helps | Does **not** auto-fix |
+|------------------|-------------------------|
+| Faster `train` / `eval` / `backtest` loops | stable_gate FAIL / weak labels |
+| Larger **local** LLM for desk prose (if RAM allows) | LightGBM accuracy (advise ≠ train) |
+| Heavier one-knob experiments on a workstation | Daily paper discipline on Neo |
+
+**LightGBM:** usually CPU-bound; extra `rounds` often useless if `best_iteration` is already small (early stopping). Prefer better **data, horizon/labels, features, portfolio rules, costs** + bare multi-window BT.  
+**Ollama agents:** optional larger model = better narrative only — still no execute, still no training on prose.  
+**Profit path:** beat eq/mom **after costs across windows** + intentional RTH rebalance — not GPU theater.
+
+Learning-oriented backlog, ROI order, and research ritual: **`docs/BACKUP_MIGRATE_SCALE.md`** §7–8. Operator literacy: **`docs/OPERATOR_SKILL.md`**.
 
 ### Architecture (v1)
 

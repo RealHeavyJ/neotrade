@@ -14,7 +14,9 @@ cp .env.example .env   # add Alpaca paper keys
 brew services start ollama && ollama pull llama3.2:3b
 ```
 
-Daily checklist: **`DAILY_TODO.md`**.
+Daily checklist: **`DAILY_TODO.md`**.  
+Backup / migrate / scale (models, secrets, new machines, compute ROI): **`docs/BACKUP_MIGRATE_SCALE.md`**.  
+Learning stage track: **`docs/OPERATOR_SKILL.md`**.
 
 ## What each piece does
 
